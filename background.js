@@ -8,7 +8,7 @@ const RULE_RANGES = {
   CUSTOM: { start: 30000, end: 39999 }
 };
 
-// Default blocklists
+// Default blocklists - using more specific patterns for element blocking
 const DEFAULT_LISTS = {
   workday: [
     "*://*.instagram.com/*",
@@ -101,23 +101,32 @@ async function setBlockRules(patterns, enable, type = 'CUSTOM') {
       
       // Generate new rule IDs
       const ruleIds = generateRuleIds(patterns, type);
-      const rules = patterns.map((pattern, index) => ({
-        id: ruleIds[index],
-        priority: 1,
-        action: {
-          type: "redirect",
-          redirect: {
-            extensionPath: "/blocked.html"
-          }
-        },
-        condition: {
-          urlFilter: pattern,
-          resourceTypes: ["main_frame"]
+          const rules = patterns.map((pattern, index) => ({
+      id: ruleIds[index],
+      priority: 100, // Higher priority to ensure it takes precedence
+      action: {
+        type: "redirect",
+        redirect: {
+          extensionPath: "/blocked.html?from=" + encodeURIComponent(pattern)
         }
-      }));
+      },
+      condition: {
+        urlFilter: pattern,
+        resourceTypes: ["main_frame"]
+      }
+    }));
+      
+      console.log('Created DNR rules:', rules);
       
       await DNR.updateDynamicRules({ addRules: rules });
       console.log(`Added ${rules.length} block rules for ${type}`);
+      
+      // Verify the rules were added
+      const currentRules = await DNR.getDynamicRules();
+      const addedRules = currentRules.filter(rule => 
+        rule.id >= RULE_RANGES[type].start && rule.id < RULE_RANGES[type].end
+      );
+      console.log(`Verified ${addedRules.length} active rules for ${type}`);
     } else {
       // Remove rules by type range
       const existingRules = await DNR.getDynamicRules();
@@ -142,18 +151,40 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
   
   const endTime = Date.now() + (durationMinutes * 60 * 1000);
   
+  // Determine blocking strategy based on duration
+  const isDeepFocus = durationMinutes >= 90; // Deep Focus blocks entire sites
+  
+  console.log('Starting focus session:', { durationMinutes, isDeepFocus, patterns });
+  
+  if (isDeepFocus) {
+    // Deep Focus: Block entire sites using DNR with redirect to blocked page
+    console.log('Setting up Deep Focus DNR rules');
+    await setBlockRules(patterns, true, 'FOCUS_SESSION');
+  } else {
+    // Quick Focus: Only content scripts will block elements (no DNR rules)
+    console.log('Quick Focus - no DNR rules, only content script blocking');
+    // Clear any existing DNR rules to ensure no blocking
+    await setBlockRules(patterns, false, 'FOCUS_SESSION');
+  }
+  
   await Promise.all([
-    setBlockRules(patterns, true, 'FOCUS_SESSION'),
-    chrome.storage.sync.set({ activeFocusUntil: endTime }),
+    chrome.storage.sync.set({ 
+      activeFocusUntil: endTime,
+      isDeepFocus: isDeepFocus,
+      focusSessionActive: true
+    }),
     chrome.alarms.create('focusSessionEnd', { delayInMinutes: durationMinutes })
   ]);
+  
+  // Notify content scripts about session change
+  broadcastSessionChange();
   
   if (chrome.notifications) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon48.png',
       title: 'Focus Session Started',
-      message: `Blocking distracting sites for ${durationMinutes} minutes`
+      message: `${isDeepFocus ? 'Deep Focus' : 'Quick Focus'} session started for ${durationMinutes} minutes`
     });
   }
   
@@ -167,9 +198,16 @@ async function endFocusSession() {
   
   await Promise.all([
     setBlockRules(patterns, false, 'FOCUS_SESSION'),
-    chrome.storage.sync.set({ activeFocusUntil: 0 }),
+    chrome.storage.sync.set({ 
+      activeFocusUntil: 0,
+      isDeepFocus: false,
+      focusSessionActive: false
+    }),
     chrome.alarms.clear('focusSessionEnd')
   ]);
+  
+  // Notify content scripts about session change
+  broadcastSessionChange();
   
   if (chrome.notifications) {
     chrome.notifications.create({
@@ -239,6 +277,17 @@ async function createScheduleAlarms(schedule) {
   }
 }
 
+// Broadcast session changes to content scripts
+function broadcastSessionChange() {
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, { action: 'focusSessionChanged' }).catch(() => {
+        // Ignore errors for tabs that don't have content scripts
+      });
+    });
+  });
+}
+
 // Handle alarm events
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'focusSessionEnd') {
@@ -278,6 +327,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(sendResponse)
         .catch(error => sendResponse({ success: false, error: error.message }));
       return true; // Keep message channel open for async response
+      
+    case 'testDNRRules':
+      DNR.getDynamicRules().then(rules => {
+        console.log('Current DNR rules:', rules);
+        sendResponse({ rules: rules });
+      }).catch(error => sendResponse({ error: error.message }));
+      return true;
       
     case 'endFocusSession':
       endFocusSession()

@@ -166,7 +166,7 @@ class PopupManager {
                 button.disabled = false;
                 button.innerHTML = `
                     <span class="duration">${duration}m</span>
-                    <span class="label">${duration === 25 ? 'Quick Focus' : 'Deep Work'}</span>
+                    <span class="label">${duration === 25 ? 'Quick Focus' : 'Deep Focus'}</span>
                 `;
             }
         }

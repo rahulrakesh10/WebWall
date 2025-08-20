@@ -2,10 +2,14 @@
 class InstagramBlocker {
     constructor() {
         this.rules = [
-            // Home feed
-            'main [role="feed"]',
+            // Home feed - more aggressive selectors
+            'main article[data-testid="post-container"]',
+            'main [role="feed"] article',
+            'main [data-testid="post-container"] article',
+            'article[data-testid="post-container"]',
+            '[role="feed"] article',
             'main article',
-            'main [data-testid="post-container"]',
+            'article[data-testid="post-container"]',
             
             // Reels
             '[aria-label="Reels"]',
@@ -54,6 +58,9 @@ class InstagramBlocker {
         // Load configuration
         await this.loadConfig();
         
+        // Inject blocking CSS immediately to prevent flash
+        this.injectBlockingCSS();
+        
         // Check if there's an active focus session before applying rules
         await this.checkFocusSession();
         
@@ -88,13 +95,29 @@ class InstagramBlocker {
             const hasActiveSession = response.focusSessionActive && response.activeUntil && response.activeUntil > Date.now();
             
             if (hasActiveSession) {
-                this.applyRules();
+                // Check if it's a Deep Focus session (90+ minutes)
+                const sessionDuration = response.activeUntil - Date.now();
+                const isDeepFocus = sessionDuration >= (90 * 60 * 1000);
+                
+                if (isDeepFocus) {
+                    console.log('Deep Focus session active - entire site should be blocked by DNR');
+                    // Don't apply content script rules for Deep Focus
+                    this.clearBlocks();
+                } else {
+                    console.log('Quick Focus session active - applying Instagram element blocks');
+                    this.applyRules();
+                }
             } else {
                 // Clear any existing blocks if no session is active
+                console.log('No focus session - clearing Instagram blocks');
                 this.clearBlocks();
+                // Also remove the blocking CSS
+                this.removeBlockingCSS();
             }
         } catch (error) {
             console.error('Error checking focus session:', error);
+            // If we can't check, don't block anything
+            this.clearBlocks();
         }
     }
 
@@ -108,6 +131,94 @@ class InstagramBlocker {
                 this.blockElements(selector);
             }
         });
+        
+        // Also inject CSS to ensure blocking
+        this.injectBlockingCSS();
+    }
+    
+    injectBlockingCSS() {
+        // Remove existing style if any
+        const existingStyle = document.getElementById('webwall-blocking-css');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+        
+        // Create and inject CSS
+        const style = document.createElement('style');
+        style.id = 'webwall-blocking-css';
+        style.textContent = `
+            /* Cover only the feed posts, not stories */
+            
+            /* Target individual feed posts instead of the whole feed */
+            article[data-testid="post-container"] {
+                position: relative !important;
+            }
+            
+            article[data-testid="post-container"]::after {
+                content: "" !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: #000000 !important;
+                z-index: 9999 !important;
+                pointer-events: none !important;
+            }
+            
+            /* Also cover any other feed content */
+            main [role="feed"] article {
+                position: relative !important;
+            }
+            
+            main [role="feed"] article::after {
+                content: "" !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: #000000 !important;
+                z-index: 9999 !important;
+                pointer-events: none !important;
+            }
+            
+            /* Hide specific distracting elements */
+            [aria-label="Reels"] { display: none !important; }
+            a[href="/reels/"] { display: none !important; }
+            a[href^="/reels/"] { display: none !important; }
+            a[href="/explore/"] { display: none !important; }
+            a[href="/shopping/"] { display: none !important; }
+            a[href="/live/"] { display: none !important; }
+        `;
+        
+        // Inject immediately to prevent flash
+        if (document.head) {
+            document.head.appendChild(style);
+        } else {
+            // If head doesn't exist yet, wait for it
+            document.addEventListener('DOMContentLoaded', () => {
+                document.head.appendChild(style);
+            });
+        }
+        
+        console.log('Injected black overlay CSS for individual posts');
+        
+        // Debug: log what elements we're targeting
+        setTimeout(() => {
+            const posts = document.querySelectorAll('article[data-testid="post-container"]');
+            const stories = document.querySelectorAll('[data-testid="stories-container"]');
+            console.log('Found posts:', posts.length);
+            console.log('Found stories containers:', stories.length);
+        }, 1000);
+    }
+    
+    removeBlockingCSS() {
+        const existingStyle = document.getElementById('webwall-blocking-css');
+        if (existingStyle) {
+            existingStyle.remove();
+            console.log('Removed blocking CSS');
+        }
     }
 
     clearBlocks() {
@@ -123,12 +234,15 @@ class InstagramBlocker {
             }
         });
         this.blockedElements.clear();
+        
+        // Remove injected CSS
+        this.removeBlockingCSS();
     }
 
     shouldBlockSelector(selector) {
-        // Check if selector should be blocked based on current page and config
+        // For Quick Focus, block all distracting elements
         if (selector.includes('feed') || selector.includes('article') || selector.includes('post-container')) {
-            return this.config.blockHomeFeed && this.isHomePage();
+            return this.config.blockHomeFeed;
         }
         
         if (selector.includes('reels')) {
@@ -158,12 +272,15 @@ class InstagramBlocker {
         const elements = document.querySelectorAll(selector);
         elements.forEach(element => {
             if (element && !element.hasAttribute('data-focus-blocked')) {
+                // Block all matching elements for Quick Focus
                 element.style.setProperty('display', 'none', 'important');
                 element.setAttribute('data-focus-blocked', '1');
                 this.blockedElements.add(element);
                 
                 // Add a subtle indicator
                 this.addBlockIndicator(element);
+                
+                console.log('Blocked element:', selector, element);
             }
         });
     }
@@ -315,16 +432,20 @@ class InstagramBlocker {
     }
 }
 
-// Initialize the blocker when the page loads
+// Initialize the blocker immediately to prevent flash
 let instagramBlocker;
 
 function initializeBlocker() {
+    // Run immediately to prevent flash
+    instagramBlocker = new InstagramBlocker();
+    
+    // Also run when DOM is ready for any missed elements
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            instagramBlocker = new InstagramBlocker();
+            if (instagramBlocker) {
+                instagramBlocker.checkFocusSession();
+            }
         });
-    } else {
-        instagramBlocker = new InstagramBlocker();
     }
 }
 
