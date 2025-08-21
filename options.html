@@ -413,6 +413,15 @@
             transform: translateX(26px);
         }
 
+        .duration-input {
+            width: 80px;
+            padding: 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -623,6 +632,18 @@
                         <div class="setting-item">
                             <label>Redirect home to DMs</label>
                             <div class="toggle-switch" id="redirectToDMsToggle"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-card">
+                        <h3>Focus Session Durations</h3>
+                        <div class="setting-item">
+                            <label>Quick Focus Duration (minutes)</label>
+                            <input type="number" id="quickFocusDuration" min="1" max="180" value="25" class="duration-input">
+                        </div>
+                        <div class="setting-item">
+                            <label>Deep Focus Duration (minutes)</label>
+                            <input type="number" id="deepFocusDuration" min="1" max="180" value="90" class="duration-input">
                         </div>
                     </div>
                 </div>

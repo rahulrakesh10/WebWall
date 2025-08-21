@@ -9,11 +9,25 @@ class PopupManager {
     async init() {
         try {
             await this.loadStatus();
+            await this.loadDurations();
             this.setupEventListeners();
             this.showContent();
         } catch (error) {
             console.error('Error initializing popup:', error);
             this.showError();
+        }
+    }
+
+    async loadDurations() {
+        try {
+            const settings = await chrome.storage.sync.get(['settings']);
+            const quickDuration = settings.settings?.quickFocusDuration || 25;
+            const deepDuration = settings.settings?.deepFocusDuration || 90;
+            
+            document.querySelector('#quickFocus .duration').textContent = `${quickDuration}m`;
+            document.querySelector('#deepFocus .duration').textContent = `${deepDuration}m`;
+        } catch (error) {
+            console.error('Error loading durations:', error);
         }
     }
 
@@ -110,14 +124,20 @@ class PopupManager {
         }
     }
 
+
+
     setupEventListeners() {
         // Focus session buttons
-        document.getElementById('quickFocus').addEventListener('click', (event) => {
-            this.startFocusSession(25, 'deep_work', event);
+        document.getElementById('quickFocus').addEventListener('click', async (event) => {
+            const settings = await chrome.storage.sync.get(['settings']);
+            const duration = settings.settings?.quickFocusDuration || 25;
+            this.startFocusSession(duration, 'deep_work', event);
         });
 
-        document.getElementById('deepFocus').addEventListener('click', (event) => {
-            this.startFocusSession(90, 'deep_work', event);
+        document.getElementById('deepFocus').addEventListener('click', async (event) => {
+            const settings = await chrome.storage.sync.get(['settings']);
+            const duration = settings.settings?.deepFocusDuration || 90;
+            this.startFocusSession(duration, 'deep_work', event);
         });
 
         // End session button

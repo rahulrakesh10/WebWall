@@ -69,6 +69,15 @@ class OptionsManager {
         document.getElementById('bypassDuration').addEventListener('input', () => {
             this.saveSettings();
         });
+
+        // Duration inputs
+        document.getElementById('quickFocusDuration').addEventListener('change', () => {
+            this.saveSettings();
+        });
+
+        document.getElementById('deepFocusDuration').addEventListener('change', () => {
+            this.saveSettings();
+        });
     }
 
     async loadData() {
@@ -307,6 +316,18 @@ class OptionsManager {
         if (durationSlider && this.settings.bypassHoldDuration) {
             durationSlider.value = this.settings.bypassHoldDuration / 1000;
         }
+
+        // Load duration inputs
+        const quickFocusDuration = document.getElementById('quickFocusDuration');
+        const deepFocusDuration = document.getElementById('deepFocusDuration');
+        
+        if (quickFocusDuration && this.settings.quickFocusDuration) {
+            quickFocusDuration.value = this.settings.quickFocusDuration;
+        }
+        
+        if (deepFocusDuration && this.settings.deepFocusDuration) {
+            deepFocusDuration.value = this.settings.deepFocusDuration;
+        }
     }
 
     async saveSettings() {
@@ -318,7 +339,9 @@ class OptionsManager {
             blockInstagramHomeFeed: document.getElementById('blockHomeFeedToggle').classList.contains('active'),
             blockInstagramReels: document.getElementById('blockReelsToggle').classList.contains('active'),
             blockInstagramStories: document.getElementById('blockStoriesToggle').classList.contains('active'),
-            redirectInstagramToDMs: document.getElementById('redirectToDMsToggle').classList.contains('active')
+            redirectInstagramToDMs: document.getElementById('redirectToDMsToggle').classList.contains('active'),
+            quickFocusDuration: parseInt(document.getElementById('quickFocusDuration').value) || 25,
+            deepFocusDuration: parseInt(document.getElementById('deepFocusDuration').value) || 90
         };
 
         try {

@@ -91,6 +91,13 @@ class InstagramBlocker {
 
     async checkFocusSession() {
         try {
+            // Check if extension context is still valid
+            if (!chrome.runtime?.id) {
+                console.log('Extension context invalid, clearing blocks');
+                this.clearBlocks();
+                return;
+            }
+
             const response = await chrome.runtime.sendMessage({ action: 'getStatus' });
             const hasActiveSession = response.focusSessionActive && response.activeUntil && response.activeUntil > Date.now();
             
@@ -118,6 +125,7 @@ class InstagramBlocker {
             console.error('Error checking focus session:', error);
             // If we can't check, don't block anything
             this.clearBlocks();
+            this.removeBlockingCSS();
         }
     }
 
@@ -451,33 +459,48 @@ function initializeBlocker() {
 
 // Handle messages from the extension
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.target === 'instagram' && instagramBlocker) {
-        switch (message.action) {
-            case 'updateConfig':
-                instagramBlocker.updateConfig(message.config)
-                    .then(() => sendResponse({ success: true }))
-                    .catch(error => sendResponse({ success: false, error: error.message }));
-                return true;
-                
-            case 'getConfig':
-                sendResponse({ config: instagramBlocker.getConfig() });
-                return true;
-                
-            case 'disable':
-                instagramBlocker.disable();
-                sendResponse({ success: true });
-                return true;
-                
-            case 'enable':
-                instagramBlocker.enable();
-                sendResponse({ success: true });
-                return true;
+    try {
+        // Check if extension context is still valid
+        if (!chrome.runtime?.id) {
+            console.log('Extension context invalid, ignoring message');
+            return;
         }
-    }
-    
-    // Listen for focus session changes
-    if (message.action === 'focusSessionChanged' && instagramBlocker) {
-        instagramBlocker.checkFocusSession();
+
+        if (message.target === 'instagram' && instagramBlocker) {
+            switch (message.action) {
+                case 'updateConfig':
+                    instagramBlocker.updateConfig(message.config)
+                        .then(() => sendResponse({ success: true }))
+                        .catch(error => sendResponse({ success: false, error: error.message }));
+                    return true;
+                    
+                case 'getConfig':
+                    sendResponse({ config: instagramBlocker.getConfig() });
+                    return true;
+                    
+                case 'disable':
+                    instagramBlocker.disable();
+                    sendResponse({ success: true });
+                    return true;
+                    
+                case 'enable':
+                    instagramBlocker.enable();
+                    sendResponse({ success: true });
+                    return true;
+            }
+        }
+        
+        // Listen for focus session changes
+        if (message.action === 'focusSessionChanged' && instagramBlocker) {
+            instagramBlocker.checkFocusSession();
+        }
+    } catch (error) {
+        console.error('Error handling message:', error);
+        // Don't block anything if there's an error
+        if (instagramBlocker) {
+            instagramBlocker.clearBlocks();
+            instagramBlocker.removeBlockingCSS();
+        }
     }
 });
 
