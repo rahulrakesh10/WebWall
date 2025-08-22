@@ -1,7 +1,7 @@
 // Blocked page functionality for Focus Blocks
 let holdTimer = null;
 let holdProgress = 0;
-let bypassHoldDuration = 3000; // 3 seconds
+let bypassHoldDuration = 10000; // 10 seconds
 let originalUrl = '';
 
 // Get URL parameters
@@ -129,12 +129,48 @@ async function loadStats() {
     }
 }
 
-// Bypass button functionality - simplified to work immediately
+// Bypass button functionality - hold to bypass
 function setupBypassButton() {
     const bypassButton = document.getElementById('bypassButton');
+    const progressBar = document.getElementById('progressBar');
+
+    bypassButton.addEventListener('mousedown', startHold);
+    bypassButton.addEventListener('mouseup', endHold);
+    bypassButton.addEventListener('mouseleave', endHold);
+    bypassButton.addEventListener('touchstart', startHold);
+    bypassButton.addEventListener('touchend', endHold);
+}
+
+function startHold() {
+    const bypassButton = document.getElementById('bypassButton');
+    const progressBar = document.getElementById('progressBar');
     
-    // Simple click to bypass - no hold timer needed
-    bypassButton.addEventListener('click', bypassSite);
+    bypassButton.classList.add('holding');
+    holdProgress = 0;
+    progressBar.style.width = '0%';
+    
+    holdTimer = setInterval(() => {
+        holdProgress += 100; // Update every 100ms for smooth progress
+        const percentage = (holdProgress / bypassHoldDuration) * 100;
+        progressBar.style.width = `${Math.min(percentage, 100)}%`;
+        
+        if (holdProgress >= bypassHoldDuration) {
+            bypassSite();
+        }
+    }, 100);
+}
+
+function endHold() {
+    if (holdTimer) {
+        clearInterval(holdTimer);
+        holdTimer = null;
+    }
+    const bypassButton = document.getElementById('bypassButton');
+    const progressBar = document.getElementById('progressBar');
+    
+    bypassButton.classList.remove('holding');
+    progressBar.style.width = '0%';
+    holdProgress = 0;
 }
 
 function startHold() {

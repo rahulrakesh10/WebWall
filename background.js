@@ -160,6 +160,17 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
     // Deep Focus: Block entire sites using DNR with redirect to blocked page
     console.log('Setting up Deep Focus DNR rules');
     await setBlockRules(patterns, true, 'FOCUS_SESSION');
+    
+    // Notify all tabs to refresh for Deep Focus
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, { 
+        action: 'deepFocusActivated',
+        message: 'Deep Focus activated! Refreshing page to apply site blocking...'
+      }).catch(() => {
+        // Ignore errors for tabs without content scripts
+      });
+    });
   } else {
     // Quick Focus: Only content scripts will block elements (no DNR rules)
     console.log('Quick Focus - no DNR rules, only content script blocking');

@@ -151,13 +151,19 @@ class InstagramBlocker {
             existingStyle.remove();
         }
         
+        // Only apply blocking CSS on the homepage
+        if (!this.isHomePage()) {
+            console.log('Not on homepage, skipping blocking CSS');
+            return;
+        }
+        
         // Create and inject CSS
         const style = document.createElement('style');
         style.id = 'webwall-blocking-css';
         style.textContent = `
-            /* Cover only the feed posts, not stories */
+            /* Only cover distracting elements on the main feed page */
             
-            /* Target individual feed posts instead of the whole feed */
+            /* Cover individual feed posts */
             article[data-testid="post-container"] {
                 position: relative !important;
             }
@@ -174,12 +180,12 @@ class InstagramBlocker {
                 pointer-events: none !important;
             }
             
-            /* Also cover any other feed content */
-            main [role="feed"] article {
+            /* Cover stories section */
+            [data-testid="stories-container"] {
                 position: relative !important;
             }
             
-            main [role="feed"] article::after {
+            [data-testid="stories-container"]::after {
                 content: "" !important;
                 position: absolute !important;
                 top: 0 !important;
@@ -191,7 +197,24 @@ class InstagramBlocker {
                 pointer-events: none !important;
             }
             
-            /* Hide specific distracting elements */
+            /* Cover reels carousel */
+            [data-testid="reel-carousel"] {
+                position: relative !important;
+            }
+            
+            [data-testid="reel-carousel"]::after {
+                content: "" !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: #000000 !important;
+                z-index: 9999 !important;
+                pointer-events: none !important;
+            }
+            
+            /* Hide specific distracting navigation elements */
             [aria-label="Reels"] { display: none !important; }
             a[href="/reels/"] { display: none !important; }
             a[href^="/reels/"] { display: none !important; }
@@ -210,14 +233,16 @@ class InstagramBlocker {
             });
         }
         
-        console.log('Injected black overlay CSS for individual posts');
+        console.log('Injected black overlay CSS for distracting elements on homepage only');
         
         // Debug: log what elements we're targeting
         setTimeout(() => {
             const posts = document.querySelectorAll('article[data-testid="post-container"]');
             const stories = document.querySelectorAll('[data-testid="stories-container"]');
+            const reels = document.querySelectorAll('[data-testid="reel-carousel"]');
             console.log('Found posts:', posts.length);
             console.log('Found stories containers:', stories.length);
+            console.log('Found reels carousels:', reels.length);
         }, 1000);
     }
     
@@ -494,6 +519,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.action === 'focusSessionChanged' && instagramBlocker) {
             instagramBlocker.checkFocusSession();
         }
+        
+        // Handle Deep Focus activation
+        if (message.action === 'deepFocusActivated') {
+            showDeepFocusPrompt(message.message);
+        }
     } catch (error) {
         console.error('Error handling message:', error);
         // Don't block anything if there's an error
@@ -513,3 +543,78 @@ window.addEventListener('load', () => {
         instagramBlocker = new InstagramBlocker();
     }
 });
+
+// Show Deep Focus prompt and auto-refresh
+function showDeepFocusPrompt(message) {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+    
+    // Create prompt box
+    const promptBox = document.createElement('div');
+    promptBox.style.cssText = `
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        text-align: center;
+        max-width: 400px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    `;
+    
+    promptBox.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🧱</div>
+        <h2 style="color: #2d3748; margin-bottom: 1rem;">Deep Focus Activated</h2>
+        <p style="color: #718096; margin-bottom: 1.5rem;">${message}</p>
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+            <button id="refreshNow" style="
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 500;
+            ">Refresh Now</button>
+            <button id="refreshLater" style="
+                background: #e2e8f0;
+                color: #4a5568;
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 500;
+            ">Refresh Later</button>
+        </div>
+    `;
+    
+    overlay.appendChild(promptBox);
+    document.body.appendChild(overlay);
+    
+    // Add event listeners
+    document.getElementById('refreshNow').addEventListener('click', () => {
+        window.location.reload();
+    });
+    
+    document.getElementById('refreshLater').addEventListener('click', () => {
+        overlay.remove();
+    });
+    
+    // Auto-refresh after 3 seconds
+    setTimeout(() => {
+        if (document.body.contains(overlay)) {
+            window.location.reload();
+        }
+    }, 3000);
+}
