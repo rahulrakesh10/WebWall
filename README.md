@@ -10,8 +10,8 @@ A powerful browser extension that helps you stay focused by blocking distracting
 - Customizable blocklists for different scenarios
 
 ### ⏰ **Focus Sessions**
-- Quick Focus (25 minutes) for short bursts of productivity
-- Deep Work (90 minutes) for extended focus periods
+- Quick Focus for short bursts of productivity
+- Deep Work for extended focus periods
 - Custom duration sessions
 - Automatic session management with countdown timers
 
