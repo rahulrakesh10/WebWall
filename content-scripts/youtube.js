@@ -81,34 +81,55 @@ class YouTubeBlocker {
             return;
         }
         
-        // Also apply manual blocking for any existing Shorts elements
-        this.applyManualShortsBlocking();
-        
         // Create and inject CSS
         const style = document.createElement('style');
         style.id = 'webwall-blocking-css';
         style.textContent = `
-            /* Cover the entire main content area to block all videos */
+            /* Completely block YouTube homepage with overlay */
             
-            /* Cover the main content area */
+            /* Target the main content area */
             ytd-page-manager,
-            ytd-browse[page-subtype="home"],
-            ytd-rich-grid-renderer {
+            ytd-browse[page-subtype="home"] {
                 position: relative !important;
             }
             
-            ytd-page-manager::after,
-            ytd-browse[page-subtype="home"]::after,
-            ytd-rich-grid-renderer::after {
+            /* Create a full-screen blocking overlay */
+            ytd-page-manager::before,
+            ytd-browse[page-subtype="home"]::before {
                 content: "" !important;
-                position: absolute !important;
+                position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                background: #000000 !important;
-                z-index: 9999 !important;
+                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important;
+                z-index: 999999 !important;
+                pointer-events: auto !important;
+            }
+            
+            /* Add blocking message overlay */
+            ytd-page-manager::after,
+            ytd-browse[page-subtype="home"]::after {
+                content: "🎯 Focus Session Active\\A\\A YouTube homepage is blocked\\A to help you stay focused.\\A\\A You can still access specific videos\\A by searching or using direct links." !important;
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                z-index: 1000000 !important;
                 pointer-events: none !important;
+                text-align: center !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                color: white !important;
+                font-size: 18px !important;
+                line-height: 1.6 !important;
+                max-width: 450px !important;
+                background: rgba(0, 0, 0, 0.9) !important;
+                padding: 30px 40px !important;
+                border-radius: 12px !important;
+                backdrop-filter: blur(10px) !important;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                white-space: pre-line !important;
             }
             
             /* Hide specific distracting navigation elements */
@@ -121,6 +142,14 @@ class YouTubeBlocker {
             /* Hide Shorts in sidebar navigation */
             ytd-guide-entry-renderer[title="Shorts"],
             ytd-guide-entry-renderer[aria-label*="Shorts"] { display: none !important; }
+            
+            /* Prevent any interaction with video content */
+            ytd-rich-grid-renderer,
+            ytd-rich-grid-row,
+            ytd-rich-item-renderer,
+            ytd-rich-item-renderer * {
+                pointer-events: none !important;
+            }
         `;
         
         // Inject immediately to prevent flash
@@ -133,7 +162,7 @@ class YouTubeBlocker {
             });
         }
         
-        console.log('Injected black overlay CSS for Shorts on homepage only');
+        console.log('Injected comprehensive blocking CSS for YouTube homepage');
         
         // Debug: log what elements we're targeting
         setTimeout(() => {
@@ -160,40 +189,6 @@ class YouTubeBlocker {
             existingStyle.remove();
             console.log('Removed YouTube blocking CSS');
         }
-        
-        // Remove manual blocking
-        this.removeManualShortsBlocking();
-    }
-    
-    applyManualShortsBlocking() {
-        // Manually block the entire main content area
-        const mainContentSelectors = [
-            'ytd-page-manager',
-            'ytd-browse[page-subtype="home"]',
-            'ytd-rich-grid-renderer',
-            'ytd-rich-grid-row',
-            'ytd-rich-item-renderer'
-        ];
-        
-        mainContentSelectors.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(element => {
-                if (element && !element.hasAttribute('data-webwall-blocked')) {
-                    element.style.setProperty('display', 'none', 'important');
-                    element.setAttribute('data-webwall-blocked', '1');
-                    console.log('Manually blocked main content element:', selector);
-                }
-            });
-        });
-    }
-    
-    removeManualShortsBlocking() {
-        const blockedElements = document.querySelectorAll('[data-webwall-blocked]');
-        blockedElements.forEach(element => {
-            element.style.removeProperty('display');
-            element.removeAttribute('data-webwall-blocked');
-        });
-        console.log('Removed manual Shorts blocking from', blockedElements.length, 'elements');
     }
 
     setupObserver() {
@@ -231,10 +226,6 @@ class YouTubeBlocker {
                 clearTimeout(this.reapplyTimeout);
                 this.reapplyTimeout = setTimeout(() => {
                     this.checkFocusSession();
-                    // Also apply manual blocking for new elements
-                    if (this.isHomePage()) {
-                        this.applyManualShortsBlocking();
-                    }
                 }, 100);
             }
         });
@@ -318,6 +309,54 @@ class YouTubeBlocker {
     enable() {
         this.checkFocusSession();
     }
+
+    // Method to show deep focus prompt
+    showDeepFocusPrompt() {
+        // Create a prompt to refresh the page
+        const prompt = document.createElement('div');
+        prompt.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        `;
+        
+        prompt.innerHTML = `
+            <h3>Deep Focus Activated</h3>
+            <p>This site is now blocked. The page will refresh automatically in 3 seconds.</p>
+            <div style="margin-top: 15px;">
+                <button id="refresh-now" style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Refresh Now</button>
+                <button id="refresh-later" style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Refresh Later</button>
+            </div>
+        `;
+        
+        document.body.appendChild(prompt);
+        
+        // Auto-refresh after 3 seconds
+        const autoRefresh = setTimeout(() => {
+            window.location.reload();
+        }, 3000);
+        
+        // Manual refresh button
+        document.getElementById('refresh-now').addEventListener('click', () => {
+            clearTimeout(autoRefresh);
+            window.location.reload();
+        });
+        
+        // Cancel button
+        document.getElementById('refresh-later').addEventListener('click', () => {
+            clearTimeout(autoRefresh);
+            document.body.removeChild(prompt);
+        });
+    }
 }
 
 // Initialize the blocker immediately to prevent flash
@@ -344,6 +383,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!chrome.runtime?.id) {
             console.log('Extension context invalid, ignoring message');
             return;
+        }
+
+        // Ensure youtubeBlocker is initialized
+        if (!youtubeBlocker) {
+            console.log('YouTube blocker not initialized, initializing now');
+            youtubeBlocker = new YouTubeBlocker();
         }
 
         if (message.target === 'youtube' && youtubeBlocker) {
@@ -379,62 +424,71 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         // Listen for Deep Focus activation
         if (message.action === 'deepFocusActivated' && youtubeBlocker) {
-            youtubeBlocker.showDeepFocusPrompt();
-            sendResponse({ success: true });
+            try {
+                if (typeof youtubeBlocker.showDeepFocusPrompt === 'function') {
+                    youtubeBlocker.showDeepFocusPrompt();
+                    sendResponse({ success: true });
+                } else {
+                    console.error('showDeepFocusPrompt method not found on youtubeBlocker, using fallback');
+                    // Fallback: create the prompt directly
+                    const prompt = document.createElement('div');
+                    prompt.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background: #1a1a1a;
+                        color: white;
+                        padding: 20px;
+                        border-radius: 8px;
+                        z-index: 10000;
+                        font-family: Arial, sans-serif;
+                        text-align: center;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                    `;
+                    
+                    prompt.innerHTML = `
+                        <h3>Deep Focus Activated</h3>
+                        <p>This site is now blocked. The page will refresh automatically in 3 seconds.</p>
+                        <div style="margin-top: 15px;">
+                            <button id="refresh-now" style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Refresh Now</button>
+                            <button id="refresh-later" style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Refresh Later</button>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(prompt);
+                    
+                    // Auto-refresh after 3 seconds
+                    const autoRefresh = setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                    
+                    // Manual refresh button
+                    document.getElementById('refresh-now').addEventListener('click', () => {
+                        clearTimeout(autoRefresh);
+                        window.location.reload();
+                    });
+                    
+                    // Cancel button
+                    document.getElementById('refresh-later').addEventListener('click', () => {
+                        clearTimeout(autoRefresh);
+                        document.body.removeChild(prompt);
+                    });
+                    
+                    sendResponse({ success: true });
+                }
+            } catch (error) {
+                console.error('Error showing deep focus prompt:', error);
+                sendResponse({ success: false, error: error.message });
+            }
             return true;
         }
         
     } catch (error) {
         console.error('Error handling message:', error);
+        sendResponse({ success: false, error: error.message });
     }
 });
-
-function showDeepFocusPrompt() {
-    // Create a prompt to refresh the page
-    const prompt = document.createElement('div');
-    prompt.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: #1a1a1a;
-        color: white;
-        padding: 20px;
-        border-radius: 8px;
-        z-index: 10000;
-        font-family: Arial, sans-serif;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    `;
-    
-    prompt.innerHTML = `
-        <h3>Deep Focus Activated</h3>
-        <p>This site is now blocked. The page will refresh automatically in 3 seconds.</p>
-        <div style="margin-top: 15px;">
-            <button id="refresh-now" style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Refresh Now</button>
-            <button id="refresh-later" style="background: #666; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Refresh Later</button>
-        </div>
-    `;
-    
-    document.body.appendChild(prompt);
-    
-    // Auto-refresh after 3 seconds
-    const autoRefresh = setTimeout(() => {
-        window.location.reload();
-    }, 3000);
-    
-    // Manual refresh button
-    document.getElementById('refresh-now').addEventListener('click', () => {
-        clearTimeout(autoRefresh);
-        window.location.reload();
-    });
-    
-    // Cancel button
-    document.getElementById('refresh-later').addEventListener('click', () => {
-        clearTimeout(autoRefresh);
-        document.body.removeChild(prompt);
-    });
-}
 
 // Initialize immediately
 initializeBlocker();
