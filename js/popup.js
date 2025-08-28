@@ -36,7 +36,6 @@ class PopupManager {
             const response = await chrome.runtime.sendMessage({ action: 'getStatus' });
             this.currentStatus = response;
             this.updateUI();
-            this.loadStats();
         } catch (error) {
             console.error('Error loading status:', error);
             throw error;
@@ -105,24 +104,7 @@ class PopupManager {
         }
     }
 
-    async loadStats() {
-        try {
-            const data = await chrome.storage.local.get(['stats']);
-            const stats = data.stats || { 
-                totalMinutesSaved: 0, 
-                todayMinutesSaved: 0, 
-                sessionsCompleted: 0 
-            };
 
-            if (stats.todayMinutesSaved > 0 || stats.sessionsCompleted > 0) {
-                document.getElementById('timeSaved').textContent = stats.todayMinutesSaved;
-                document.getElementById('sessionsCompleted').textContent = stats.sessionsCompleted;
-                document.getElementById('stats').style.display = 'block';
-            }
-        } catch (error) {
-            console.error('Error loading stats:', error);
-        }
-    }
 
 
 
@@ -148,10 +130,6 @@ class PopupManager {
         // Quick actions
         document.getElementById('openOptions').addEventListener('click', () => {
             chrome.runtime.openOptionsPage();
-        });
-
-        document.getElementById('viewStats').addEventListener('click', () => {
-            this.showStats();
         });
     }
 
@@ -218,10 +196,7 @@ class PopupManager {
         }
     }
 
-    showStats() {
-        // For now, just open the options page to the stats tab
-        chrome.runtime.openOptionsPage();
-    }
+
 
     showContent() {
         document.getElementById('loading').style.display = 'none';

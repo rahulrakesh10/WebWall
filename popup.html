@@ -186,41 +186,7 @@
             border-color: #cbd5e0;
         }
 
-        .stats {
-            padding: 1rem 1.5rem;
-            background: white;
-            margin: 0 1rem 1rem;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
 
-        .stats h3 {
-            font-size: 0.9rem;
-            color: #4a5568;
-            margin-bottom: 0.5rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .stat-item {
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #667eea;
-        }
-
-        .stat-label {
-            font-size: 0.7rem;
-            color: #718096;
-            margin-top: 0.25rem;
-        }
 
         .loading {
             text-align: center;
@@ -279,25 +245,10 @@
                 <div class="quick-action" id="openOptions">
                     ⚙️ Settings
                 </div>
-                <div class="quick-action" id="viewStats">
-                    📊 Stats
-                </div>
             </div>
         </div>
 
-        <div class="stats" id="stats" style="display: none;">
-            <h3>Today's Progress</h3>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-value" id="timeSaved">0</div>
-                    <div class="stat-label">Minutes Saved</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="sessionsCompleted">0</div>
-                    <div class="stat-label">Sessions</div>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <div id="error" class="error" style="display: none;">

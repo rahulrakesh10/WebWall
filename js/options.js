@@ -13,7 +13,6 @@ class OptionsManager {
         this.renderBlocklists();
         this.renderSchedules();
         this.loadSettings();
-        this.loadStats();
     }
 
     setupTabNavigation() {
@@ -65,10 +64,7 @@ class OptionsManager {
             });
         });
 
-        // Range input for bypass duration
-        document.getElementById('bypassDuration').addEventListener('input', () => {
-            this.saveSettings();
-        });
+
 
         // Duration inputs
         document.getElementById('quickFocusDuration').addEventListener('change', () => {
@@ -297,11 +293,7 @@ class OptionsManager {
         const toggles = {
             notificationsToggle: this.settings.enableNotifications,
             sessionAlertsToggle: this.settings.sessionAlerts,
-            bypassHoldToggle: this.settings.bypassRequiresHold,
-            blockHomeFeedToggle: this.settings.blockInstagramHomeFeed,
-            blockReelsToggle: this.settings.blockInstagramReels,
-            blockStoriesToggle: this.settings.blockInstagramStories,
-            redirectToDMsToggle: this.settings.redirectInstagramToDMs
+            bypassHoldToggle: this.settings.bypassRequiresHold
         };
 
         Object.entries(toggles).forEach(([id, value]) => {
@@ -311,11 +303,7 @@ class OptionsManager {
             }
         });
 
-        // Load range value
-        const durationSlider = document.getElementById('bypassDuration');
-        if (durationSlider && this.settings.bypassHoldDuration) {
-            durationSlider.value = this.settings.bypassHoldDuration / 1000;
-        }
+
 
         // Load duration inputs
         const quickFocusDuration = document.getElementById('quickFocusDuration');
@@ -335,11 +323,6 @@ class OptionsManager {
             enableNotifications: document.getElementById('notificationsToggle').classList.contains('active'),
             sessionAlerts: document.getElementById('sessionAlertsToggle').classList.contains('active'),
             bypassRequiresHold: document.getElementById('bypassHoldToggle').classList.contains('active'),
-            bypassHoldDuration: parseInt(document.getElementById('bypassDuration').value) * 1000,
-            blockInstagramHomeFeed: document.getElementById('blockHomeFeedToggle').classList.contains('active'),
-            blockInstagramReels: document.getElementById('blockReelsToggle').classList.contains('active'),
-            blockInstagramStories: document.getElementById('blockStoriesToggle').classList.contains('active'),
-            redirectInstagramToDMs: document.getElementById('redirectToDMsToggle').classList.contains('active'),
             quickFocusDuration: parseInt(document.getElementById('quickFocusDuration').value) || 25,
             deepFocusDuration: parseInt(document.getElementById('deepFocusDuration').value) || 90
         };
@@ -353,46 +336,9 @@ class OptionsManager {
         }
     }
 
-    async loadStats() {
-        try {
-            const data = await chrome.storage.local.get(['stats', 'bypassLog']);
-            const stats = data.stats || { 
-                totalMinutesSaved: 0, 
-                todayMinutesSaved: 0, 
-                sessionsCompleted: 0 
-            };
-            const bypassLog = data.bypassLog || [];
 
-            document.getElementById('totalMinutesSaved').textContent = stats.totalMinutesSaved;
-            document.getElementById('todayMinutesSaved').textContent = stats.todayMinutesSaved;
-            document.getElementById('sessionsCompleted').textContent = stats.sessionsCompleted;
-            document.getElementById('bypassCount').textContent = bypassLog.length;
 
-            this.renderRecentActivity(bypassLog);
-        } catch (error) {
-            console.error('Error loading stats:', error);
-        }
-    }
 
-    renderRecentActivity(bypassLog) {
-        const container = document.getElementById('recentActivity');
-        const recent = bypassLog.slice(-10).reverse(); // Show last 10, newest first
-
-        if (recent.length === 0) {
-            container.innerHTML = '<p style="color: #718096; text-align: center;">No recent activity</p>';
-            return;
-        }
-
-        container.innerHTML = recent.map(entry => `
-            <div style="padding: 0.75rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <div style="font-weight: 500; color: #2d3748;">${this.formatSiteName(entry.url)}</div>
-                    <div style="font-size: 0.8rem; color: #718096;">${new Date(entry.timestamp).toLocaleString()}</div>
-                </div>
-                <div style="font-size: 0.8rem; color: #c53030;">Bypassed</div>
-            </div>
-        `).join('');
-    }
 
     showSaveMessage() {
         const message = document.getElementById('saveMessage');
