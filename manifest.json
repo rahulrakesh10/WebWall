@@ -16,7 +16,10 @@
     "service_worker": "background.js"
   },
   "icons": {
-    "128": "icons/icon.svg"
+    "16": "icons/webwall.png",
+    "32": "icons/webwall.png",
+    "48": "icons/webwall.png",
+    "128": "icons/webwall.png"
   },
 
   "action": {
@@ -57,7 +60,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html", "css/*", "js/*"],
+      "resources": ["blocked.html", "css/*", "js/*", "icons/*"],
       "matches": ["*://*/*"]
     }
   ]
