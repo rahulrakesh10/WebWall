@@ -1,4 +1,4 @@
-// Reddit content script for Focus Blocks
+// Reddit content script for WebWall
 class RedditBlocker {
     constructor() {
         this.rules = [
@@ -8,10 +8,21 @@ class RedditBlocker {
             'a[href="/all/"]',
             'a[href="/popular/"]',
             
-            // Home feed posts
+            // Home feed posts - more specific selectors
             '[data-testid="post-container"]',
             '[data-testid="post"]',
             '.Post',
+            'div[data-testid="post-container"]',
+            'article[data-testid="post-container"]',
+            
+            // Reddit post content
+            'div[data-testid="post-container"]',
+            'div[data-testid="post"]',
+            'article[data-testid="post"]',
+            
+            // Promoted content
+            'div[data-testid="promoted"]',
+            '[data-testid="promoted"]',
             
             // Trending communities
             '[data-testid="trending-communities"]',
@@ -53,7 +64,14 @@ class RedditBlocker {
         this.applyRules();
         this.setupObserver();
         this.handleUrlChanges();
-        console.log('Reddit Focus Blocker initialized');
+        
+        // TEST: Force apply rules after 2 seconds to test if it works
+        setTimeout(() => {
+            console.log('TEST: Forcing Reddit rules application');
+            this.applyRules();
+        }, 2000);
+        
+        console.log('Reddit WebWall Blocker initialized');
     }
 
     async loadConfig() {
@@ -67,7 +85,10 @@ class RedditBlocker {
         }
     }
 
+
+
     applyRules() {
+        // Clear previous blocking
         this.blockedElements.forEach(element => {
             if (element && element.parentNode) {
                 element.style.removeProperty('display');
@@ -76,14 +97,27 @@ class RedditBlocker {
         });
         this.blockedElements.clear();
 
-        this.rules.forEach(selector => {
-            if (this.shouldBlockSelector(selector)) {
-                this.blockElements(selector);
-            }
-        });
+        console.log('Reddit script is running');
+
+        // Only apply blocking if we're on a feed page, not a specific post
+        if (!this.isPostPage()) {
+            this.rules.forEach(selector => {
+                if (this.shouldBlockSelector(selector)) {
+                    this.blockElements(selector);
+                }
+            });
+            
+            // Also try to hide elements by text content
+            this.hideElementsByText();
+        }
     }
 
     shouldBlockSelector(selector) {
+        // Don't block anything if we're on a specific post page
+        if (this.isPostPage()) {
+            return false;
+        }
+        
         if (selector.includes('all') || selector.includes('popular')) {
             return this.config.blockAll || this.config.blockPopular;
         }
@@ -110,7 +144,8 @@ class RedditBlocker {
     blockElements(selector) {
         const elements = document.querySelectorAll(selector);
         elements.forEach(element => {
-            if (element && !element.hasAttribute('data-focus-blocked')) {
+            // Don't block elements in the left sidebar
+            if (element && !element.hasAttribute('data-focus-blocked') && !this.isInLeftSidebar(element)) {
                 element.style.setProperty('display', 'none', 'important');
                 element.setAttribute('data-focus-blocked', '1');
                 this.blockedElements.add(element);
@@ -137,6 +172,130 @@ class RedditBlocker {
             element.style.position = 'relative';
         }
         element.appendChild(indicator);
+    }
+
+    hideElementsByText() {
+        // Don't hide anything if we're on a specific post page
+        if (this.isPostPage()) {
+            return;
+        }
+        
+        console.log('Hiding Reddit elements by text content');
+        
+        // Only target the main content area, not sidebars
+        const mainContentArea = document.querySelector('main') || 
+                               document.querySelector('[data-testid="main-content"]') ||
+                               document.querySelector('[role="main"]') ||
+                               document.body;
+        
+        // Hide elements containing "upvotes" or "comments" (typical Reddit post indicators)
+        const allElements = mainContentArea.querySelectorAll('*');
+        allElements.forEach(element => {
+            if (element.textContent && (
+                element.textContent.includes('upvotes') ||
+                element.textContent.includes('comments') ||
+                element.textContent.includes('Share') ||
+                element.textContent.includes('Promoted')
+            )) {
+                // Check if it's a post container
+                const postContainer = element.closest('[data-testid="post-container"]') || 
+                                    element.closest('[data-testid="post"]') ||
+                                    element.closest('article');
+                
+                // Only hide if it's a post container and not in sidebar
+                if (postContainer && !this.isInLeftSidebar(postContainer)) {
+                    postContainer.style.display = 'none';
+                    console.log('Hidden Reddit post by text content:', element.textContent.substring(0, 50));
+                }
+            }
+        });
+        
+        // Hide promoted content specifically
+        const promotedElements = mainContentArea.querySelectorAll('*');
+        promotedElements.forEach(element => {
+            if (element.textContent && element.textContent.includes('Promoted')) {
+                const container = element.closest('div') || element.closest('article');
+                if (container && !this.isInLeftSidebar(container)) {
+                    container.style.display = 'none';
+                    console.log('Hidden promoted content');
+                }
+            }
+        });
+    }
+
+    isInLeftSidebar(element) {
+        // Check if element is in the left sidebar (communities list)
+        const leftSidebar = element.closest('nav') || 
+                           element.closest('[data-testid="left-sidebar"]') ||
+                           element.closest('.left-sidebar') ||
+                           element.closest('[role="navigation"]') ||
+                           element.closest('[data-testid="navigation"]') ||
+                           element.closest('[data-testid="communities"]') ||
+                           element.closest('[data-testid="community-list"]');
+        
+        return !!leftSidebar;
+    }
+
+    removeBlockingCSS() {
+        const existingStyle = document.getElementById('webwall-blocking-css');
+        if (existingStyle) {
+            existingStyle.remove();
+            console.log('Removed Reddit blocking CSS');
+        }
+    }
+
+    hideRedditElementsWithJavaScript() {
+        console.log('Using JavaScript to hide Reddit elements');
+        
+        // Hide all elements containing "Popular" or "Trending" text
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach(element => {
+            if (element.textContent && (
+                element.textContent.includes('Popular on Reddit') ||
+                element.textContent.includes('Trending today') ||
+                element.textContent.includes('Because you visited') ||
+                element.textContent.includes('Similar to') ||
+                element.textContent.includes('More like this') ||
+                element.textContent.includes('Discover more') ||
+                element.textContent.includes('You might like') ||
+                element.textContent.includes('Suggested communities') ||
+                element.textContent.includes('Trending communities')
+            )) {
+                // Check if it's a content section
+                if (element.closest('[data-testid]') || 
+                    element.closest('.Post') ||
+                    element.closest('[data-testid="post-container"]')) {
+                    element.style.display = 'none';
+                    console.log('Hidden Reddit element:', element.textContent.substring(0, 50));
+                }
+            }
+        });
+        
+        // Hide specific Reddit elements
+        const redditSelectors = [
+            '[data-testid="post-container"]',
+            '[data-testid="post"]',
+            '.Post',
+            '[data-testid="trending-communities"]',
+            '[data-testid="popular-posts"]',
+            '[data-testid="recommendations"]',
+            '[data-testid="popular-on-reddit"]',
+            '[data-testid="trending-today"]',
+            '[data-testid="because-you-visited"]',
+            '[data-testid="similar-to"]',
+            '[data-testid="more-like-this"]',
+            '[data-testid="discover-more"]',
+            '[data-testid="you-might-like"]',
+            '[data-testid="suggested-communities"]'
+        ];
+        
+        redditSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                element.style.display = 'none';
+                console.log('Hidden Reddit element with selector:', selector);
+            });
+        });
     }
 
     setupObserver() {
@@ -208,6 +367,12 @@ class RedditBlocker {
         return path === '/' || path === '/home' || path === '/r/all' || path === '/r/popular';
     }
 
+    isPostPage() {
+        const path = window.location.pathname;
+        // Check if we're on a specific post (has /comments/ in URL)
+        return path.includes('/comments/') || path.includes('/r/') && path.split('/').length > 3;
+    }
+
     async updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
         await chrome.storage.sync.set({ redditConfig: this.config });
@@ -219,6 +384,9 @@ class RedditBlocker {
     }
 
     disable() {
+        console.log('Reddit: Disabling focus mode - restoring ALL content');
+        
+        // Restore elements hidden by the rules-based method
         this.blockedElements.forEach(element => {
             if (element && element.parentNode) {
                 element.style.removeProperty('display');
@@ -226,6 +394,25 @@ class RedditBlocker {
             }
         });
         this.blockedElements.clear();
+        
+        // AGGRESSIVE restoration - restore ALL hidden elements
+        const allHiddenElements = document.querySelectorAll('*');
+        allHiddenElements.forEach(element => {
+            if (element.style.display === 'none') {
+                element.style.display = '';
+                console.log('Restored hidden element:', element.tagName, element.className);
+            }
+        });
+        
+        // Also remove any inline styles that might be hiding content
+        const elementsWithHiddenStyles = document.querySelectorAll('[style*="display: none"]');
+        elementsWithHiddenStyles.forEach(element => {
+            element.style.removeProperty('display');
+            console.log('Removed display:none from element:', element.tagName);
+        });
+        
+        // Force a page refresh to ensure everything is restored
+        console.log('Reddit focus mode disabled - all content should be visible now');
     }
 
     enable() {
