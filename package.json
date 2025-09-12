@@ -1,0 +1,36 @@
+{
+  "name": "webwall",
+  "version": "0.1.0",
+  "description": "A browser extension that helps you stay focused by blocking distracting websites and elements",
+  "main": "background.js",
+  "scripts": {
+    "build": "echo 'No build process needed for this extension'",
+    "test": "echo 'No tests specified'",
+    "lint": "echo 'No linter configured'",
+    "package": "zip -r focus-blocks.zip . -x '*.git*' 'node_modules/*' '*.DS_Store'"
+  },
+  "keywords": [
+    "browser-extension",
+    "focus",
+    "productivity",
+    "blocking",
+    "chrome-extension",
+    "firefox-addon",
+    "manifest-v3"
+  ],
+  "author": "Focus Blocks Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/focus-blocks.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/focus-blocks/issues"
+  },
+  "homepage": "https://github.com/yourusername/focus-blocks#readme",
+  "devDependencies": {},
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

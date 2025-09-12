@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebWall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 350px;
+            min-height: 400px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f7fafc;
+            color: #2d3748;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 0.75rem;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .status-section {
+            padding: 1.5rem;
+            background: white;
+            margin: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e2e8f0;
+        }
+
+        .status-dot.active {
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .timer {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #667eea;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .session-info {
+            text-align: center;
+            color: #718096;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .controls {
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        .focus-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .focus-button {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .focus-button:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .focus-button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .focus-button .duration {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: block;
+        }
+
+        .focus-button .label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .end-button {
+            width: 100%;
+            background: #fed7d7;
+            color: #c53030;
+            border: none;
+            border-radius: 10px;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .end-button:hover {
+            background: #feb2b2;
+        }
+
+        .end-button:disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .quick-action {
+            flex: 1;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.8rem;
+            color: #4a5568;
+        }
+
+        .quick-action:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+
+
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 1rem;
+            margin: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="icons/optimized/logo32.png" alt="WebWall Logo" class="logo">
+        <h1>WebWall</h1>
+        <p>Stay focused, stay productive</p>
+    </div>
+
+    <div id="loading" class="loading">
+        Loading...
+    </div>
+
+    <div id="content" style="display: none;">
+        <div class="status-section">
+            <div class="status-indicator">
+                <span>Focus Session</span>
+                <div class="status-dot" id="statusDot"></div>
+            </div>
+            
+            <div class="timer" id="timer">--:--</div>
+            <div class="session-info" id="sessionInfo">No active session</div>
+        </div>
+
+        <div class="controls">
+            <div class="focus-buttons">
+                <button class="focus-button" id="quickFocus" data-duration="25">
+                    <span class="duration">25m</span>
+                    <span class="label">Quick Focus</span>
+                </button>
+                <button class="focus-button" id="deepFocus" data-duration="90">
+                    <span class="duration">90m</span>
+                    <span class="label">Deep Focus</span>
+                </button>
+            </div>
+
+            <button class="end-button" id="endSession" disabled>
+                End Focus Session
+            </button>
+
+            <div class="quick-actions">
+                <div class="quick-action" id="openOptions">
+                    ⚙️ Settings
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <div id="error" class="error" style="display: none;">
+        An error occurred. Please try again.
+    </div>
+
+    <script src="js/popup.js"></script>
+</body>
+</html>

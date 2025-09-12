@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Blocked - WebWall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .logo {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #2d3748;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #718096;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .focus-info {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .focus-info h3 {
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .focus-info p {
+            color: #718096;
+            font-size: 0.95rem;
+        }
+
+        .timer {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+
+        .bypass-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .bypass-button {
+            background: #e2e8f0;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bypass-button:hover {
+            background: #cbd5e0;
+        }
+
+        .bypass-button:active {
+            transform: scale(0.98);
+        }
+
+        .bypass-button.holding {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .bypass-button.holding::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: #fc8181;
+            transition: width 0.1s linear;
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: #fc8181;
+            transition: width 0.1s linear;
+        }
+
+        .suggestions {
+            margin-top: 2rem;
+            text-align: left;
+        }
+
+        .suggestions h4 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .suggestion-list {
+            list-style: none;
+            color: #718096;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .suggestion-list li {
+            margin-bottom: 0.5rem;
+            padding-left: 1rem;
+            position: relative;
+        }
+
+        .suggestion-list li::before {
+            content: '•';
+            color: #667eea;
+            position: absolute;
+            left: 0;
+        }
+
+        .stats {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f0fff4;
+            border-radius: 8px;
+            border: 1px solid #c6f6d5;
+        }
+
+        .stats p {
+            color: #2f855a;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .icon {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="icons/optimized/logo56.png" alt="WebWall Logo" class="logo">
+        
+        <h1>Site Blocked</h1>
+        <p class="subtitle">This site is currently blocked to help you stay focused.</p>
+        
+        <div class="focus-info">
+            <h3>Focus Session Active</h3>
+            <div class="timer" id="timer">Loading...</div>
+            <p id="session-info">Your focus session is in progress.</p>
+        </div>
+
+        <div class="bypass-section">
+            <p style="margin-bottom: 1rem; color: #718096; font-size: 0.9rem;">
+                Need urgent access? Hold the button below for 10 seconds to temporarily bypass.
+            </p>
+            <button class="bypass-button" id="bypassButton">
+                <span class="button-text">Hold to Bypass (10s)</span>
+                <div class="progress-bar" id="progressBar"></div>
+            </button>
+        </div>
+
+        <div class="suggestions">
+            <h4>Instead, try:</h4>
+            <ul class="suggestion-list">
+                <li>Take a short break and stretch</li>
+                <li>Work on your most important task</li>
+                <li>Read a book or article</li>
+                <li>Practice deep breathing</li>
+                <li>Go for a quick walk</li>
+            </ul>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <p>You've saved <span id="timeSaved">0</span> minutes today by staying focused!</p>
+        </div>
+    </div>
+
+    <script src="js/blocked.js"></script>
+</body>
+</html>
