@@ -9,6 +9,15 @@ class PopupManager {
 
     async init() {
         try {
+            // Test if we can communicate with background script
+            console.log('Popup: Testing background script communication...');
+            try {
+                const testResponse = await chrome.runtime.sendMessage({ action: 'test' });
+                console.log('Popup: Background script test response:', testResponse);
+            } catch (testError) {
+                console.error('Popup: Background script communication test failed:', testError);
+            }
+            
             await this.loadStatus();
             await this.loadDurations();
             this.setupEventListeners();
@@ -34,6 +43,7 @@ class PopupManager {
 
     async loadStatus() {
         try {
+            console.log('Popup: Requesting status from background...');
             const response = await chrome.runtime.sendMessage({ action: 'getStatus' });
             console.log('Popup: Received status:', response);
             this.currentStatus = response;
@@ -54,7 +64,7 @@ class PopupManager {
 
         console.log('Popup: Updating UI with status:', this.currentStatus);
 
-        if (this.currentStatus.focusSessionActive && this.currentStatus.activeUntil) {
+        if (this.currentStatus.focusSessionActive && this.currentStatus.activeUntil && this.currentStatus.activeUntil > Date.now()) {
             console.log('Popup: Session is active, updating UI for active session');
             // Active session
             statusDot.classList.add('active');
@@ -168,11 +178,32 @@ class PopupManager {
         document.getElementById('openOptions').addEventListener('click', () => {
             chrome.runtime.openOptionsPage();
         });
+        
+        // Add manual test button for debugging
+        const testButton = document.createElement('button');
+        testButton.textContent = 'TEST FOCUS';
+        testButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 1000; background: red; color: white; padding: 10px;';
+        testButton.addEventListener('click', async () => {
+            console.log('MANUAL TEST: Starting focus session...');
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    action: 'startFocusSession',
+                    duration: 25,
+                    blocklist: 'deep_work'
+                });
+                console.log('MANUAL TEST: Response:', response);
+            } catch (error) {
+                console.error('MANUAL TEST: Error:', error);
+            }
+        });
+        document.body.appendChild(testButton);
     }
 
     async startFocusSession(duration, blocklist, event) {
         let button = null;
         try {
+            console.log('Popup: Starting focus session with duration:', duration, 'blocklist:', blocklist);
+            
             if (event && event.target) {
                 button = event.target.closest('.focus-button');
             }
@@ -181,13 +212,17 @@ class PopupManager {
                 button.textContent = 'Starting...';
             }
 
+            console.log('Popup: Sending startFocusSession message to background...');
             const response = await chrome.runtime.sendMessage({
                 action: 'startFocusSession',
                 duration: duration,
                 blocklist: blocklist
             });
 
+            console.log('Popup: Received response from startFocusSession:', response);
+
             if (response.success) {
+                console.log('Popup: Focus session started successfully, reloading status...');
                 await this.loadStatus();
                 this.showSuccessMessage(`Focus session started for ${duration} minutes`);
             } else {

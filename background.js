@@ -186,6 +186,12 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
     await setBlockRules(patterns, false, 'FOCUS_SESSION');
   }
   
+  console.log('Background: Setting storage values:', { 
+    activeFocusUntil: endTime,
+    isDeepFocus: isDeepFocus,
+    focusSessionActive: true
+  });
+  
   await Promise.all([
     chrome.storage.sync.set({ 
       activeFocusUntil: endTime,
@@ -195,8 +201,15 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
     chrome.alarms.create('focusSessionEnd', { delayInMinutes: durationMinutes })
   ]);
   
+  console.log('Background: Storage set successfully, verifying...');
+  
+  // Verify storage was set correctly
+  const verifyData = await chrome.storage.sync.get(['activeFocusUntil', 'focusSessionActive', 'isDeepFocus']);
+  console.log('Background: Storage verification:', verifyData);
+  
   // Wait a moment for storage to sync, then notify content scripts
   setTimeout(() => {
+    console.log('Background: Broadcasting session change...');
     broadcastSessionChange();
   }, 100);
   
@@ -214,6 +227,7 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
 
 // End focus session
 async function endFocusSession() {
+  console.log('Background: endFocusSession called');
   const data = await chrome.storage.sync.get(['lists']);
   const patterns = data.lists.deep_work || DEFAULT_LISTS.deep_work;
   
@@ -227,9 +241,11 @@ async function endFocusSession() {
     chrome.alarms.clear('focusSessionEnd')
   ]);
   
-  // Wait a moment for storage to sync, then notify content scripts
+  // Wait a moment for storage to sync, then notify content scripts and refresh tabs
   setTimeout(() => {
+    console.log('Background: Broadcasting session change and refreshing tabs');
     broadcastSessionChange();
+    refreshBlockedTabs();
   }, 100);
   
   if (chrome.notifications) {
@@ -305,22 +321,53 @@ function broadcastSessionChange() {
   chrome.tabs.query({}, (tabs) => {
     console.log(`Broadcasting session change to ${tabs.length} tabs`);
     tabs.forEach(tab => {
-      // Send message with retry mechanism
-      const sendMessageWithRetry = (retryCount = 0) => {
-        chrome.tabs.sendMessage(tab.id, { action: 'focusSessionChanged' }).catch((error) => {
-          if (retryCount < 2) {
-            // Retry after a short delay
-            setTimeout(() => {
-              sendMessageWithRetry(retryCount + 1);
-            }, 200);
-          } else {
-            // Ignore errors for tabs that don't have content scripts
-            console.log(`Could not send message to tab ${tab.id} (${tab.url}):`, error.message);
-          }
-        });
-      };
+      // Only send to relevant sites
+      const relevantSites = ['instagram.com', 'youtube.com', 'reddit.com', 'twitter.com', 'x.com', 'facebook.com', 'tiktok.com'];
+      const isRelevant = tab.url && relevantSites.some(site => tab.url.includes(site));
       
-      sendMessageWithRetry();
+      if (isRelevant) {
+        console.log(`Sending focusSessionChanged to ${tab.url}`);
+        // Send message with retry mechanism
+        const sendMessageWithRetry = (retryCount = 0) => {
+          chrome.tabs.sendMessage(tab.id, { action: 'focusSessionChanged' }).then(() => {
+            console.log(`Successfully sent message to tab ${tab.id} (${tab.url})`);
+          }).catch((error) => {
+            if (retryCount < 2) {
+              // Retry after a short delay
+              setTimeout(() => {
+                sendMessageWithRetry(retryCount + 1);
+              }, 200);
+            } else {
+              // Ignore errors for tabs that don't have content scripts
+              console.log(`Could not send message to tab ${tab.id} (${tab.url}):`, error.message);
+            }
+          });
+        };
+        
+        sendMessageWithRetry();
+      }
+    });
+  });
+}
+
+// Refresh tabs that were blocked during focus session
+function refreshBlockedTabs() {
+  const blockedDomains = [
+    'instagram.com',
+    'youtube.com', 
+    'reddit.com',
+    'twitter.com',
+    'x.com',
+    'facebook.com',
+    'tiktok.com'
+  ];
+  
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      if (tab.url && blockedDomains.some(domain => tab.url.includes(domain))) {
+        console.log(`Refreshing blocked tab: ${tab.url}`);
+        chrome.tabs.reload(tab.id);
+      }
     });
   });
 }
@@ -358,7 +405,13 @@ async function handleScheduleAlarm(alarm) {
 
 // Message handling
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Background: Received message:', message);
+  
   switch (message.action) {
+    case 'test':
+      console.log('Background: Test message received, responding...');
+      sendResponse({ success: true, message: 'Background script is working' });
+      return true;
     case 'startFocusSession':
       startFocusSession(message.duration, message.blocklist)
         .then(sendResponse)
@@ -379,14 +432,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
       
     case 'getStatus':
+      console.log('Background: getStatus request received');
       chrome.storage.sync.get(['activeFocusUntil', 'focusSessionActive', 'schedules'])
         .then(data => {
+          console.log('Background: getStatus - raw storage data:', data);
           const isActive = data.focusSessionActive && data.activeFocusUntil && data.activeFocusUntil > Date.now();
-          sendResponse({
+          const response = {
             focusSessionActive: isActive,
             activeUntil: data.activeFocusUntil,
             schedules: data.schedules || []
+          };
+          console.log('Background: getStatus - calculated response:', response);
+          console.log('Background: getStatus - isActive calculation:', {
+            focusSessionActive: data.focusSessionActive,
+            activeFocusUntil: data.activeFocusUntil,
+            currentTime: Date.now(),
+            timeLeft: data.activeFocusUntil ? data.activeFocusUntil - Date.now() : 0,
+            isActive: isActive
           });
+          sendResponse(response);
         });
       return true;
       
