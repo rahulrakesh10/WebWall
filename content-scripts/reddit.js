@@ -490,10 +490,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.action === 'focusSessionChanged' && redditBlocker) {
             redditBlocker.checkFocusSession();
         }
+        if (message.action === 'forceClear' && redditBlocker) {
+            console.log('Reddit: Received forceClear message, clearing all blocks');
+            redditBlocker.clearBlocks();
+            redditBlocker.removeBlockingCSS();
+        }
         
-        // Handle Deep Focus activation
+        // Handle Deep Focus activation: silently reload to apply site blocking
         if (message.action === 'deepFocusActivated') {
-            showDeepFocusPrompt(message.message);
+            try {
+                window.location.reload();
+            } catch (e) {
+                console.error('Reddit: Error reloading for deep focus:', e);
+            }
         }
     } catch (error) {
         console.error('Error handling message:', error);
@@ -515,77 +524,4 @@ window.addEventListener('load', () => {
     }
 });
 
-// Show Deep Focus prompt and auto-refresh
-function showDeepFocusPrompt(message) {
-    // Create overlay
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    `;
-    
-    // Create prompt box
-    const promptBox = document.createElement('div');
-    promptBox.style.cssText = `
-        background: white;
-        padding: 2rem;
-        border-radius: 12px;
-        text-align: center;
-        max-width: 400px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    `;
-    
-    promptBox.innerHTML = `
-        <div style="font-size: 3rem; margin-bottom: 1rem;">🧱</div>
-        <h2 style="color: #2d3748; margin-bottom: 1rem;">Deep Focus Activated</h2>
-        <p style="color: #718096; margin-bottom: 1.5rem;">${message}</p>
-        <div style="display: flex; gap: 1rem; justify-content: center;">
-            <button id="refreshNow" style="
-                background: #667eea;
-                color: white;
-                border: none;
-                padding: 0.75rem 1.5rem;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: 500;
-            ">Refresh Now</button>
-            <button id="refreshLater" style="
-                background: #e2e8f0;
-                color: #4a5568;
-                border: none;
-                padding: 0.75rem 1.5rem;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: 500;
-            ">Refresh Later</button>
-        </div>
-    `;
-    
-    overlay.appendChild(promptBox);
-    document.body.appendChild(overlay);
-    
-    // Add event listeners
-    document.getElementById('refreshNow').addEventListener('click', () => {
-        window.location.reload();
-    });
-    
-    document.getElementById('refreshLater').addEventListener('click', () => {
-        overlay.remove();
-    });
-    
-    // Auto-refresh after 3 seconds
-    setTimeout(() => {
-        if (document.body.contains(overlay)) {
-            window.location.reload();
-        }
-    }, 3000);
-}
+// Removed Deep Focus prompt in favor of silent reload

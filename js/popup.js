@@ -69,8 +69,15 @@ class PopupManager {
             // Active session
             statusDot.classList.add('active');
             endButton.disabled = false;
-            quickFocusBtn.classList.add('active');
-            deepFocusBtn.classList.remove('active');
+            // Determine Deep Focus by explicit flag from background
+            const isDeepFocus = !!this.currentStatus.isDeepFocus;
+            if (isDeepFocus) {
+                deepFocusBtn.classList.add('active');
+                quickFocusBtn.classList.remove('active');
+            } else {
+                quickFocusBtn.classList.add('active');
+                deepFocusBtn.classList.remove('active');
+            }
 
             // Update timer
             this.updateTimer();
@@ -159,14 +166,27 @@ class PopupManager {
         // Focus session buttons
         document.getElementById('quickFocus').addEventListener('click', async (event) => {
             const settings = await chrome.storage.sync.get(['settings']);
-            const duration = settings.settings?.quickFocusDuration || 25;
-            this.startFocusSession(duration, 'deep_work', event);
+            const quickDuration = settings.settings?.quickFocusDuration || 25;
+            this.startFocusSession(quickDuration, 'deep_work', event);
         });
 
-        document.getElementById('deepFocus').addEventListener('click', async (event) => {
+        // Support long-press for deep focus (hold > 800ms)
+        const deepBtn = document.getElementById('deepFocus');
+        let deepPressTimer;
+        deepBtn.addEventListener('mousedown', async (event) => {
+            deepPressTimer = setTimeout(async () => {
+                const settings = await chrome.storage.sync.get(['settings']);
+                const deepDuration = settings.settings?.deepFocusDuration || 90;
+                this.startFocusSession(deepDuration, 'deep_work', event);
+            }, 800);
+        });
+        deepBtn.addEventListener('mouseup', () => clearTimeout(deepPressTimer));
+        deepBtn.addEventListener('mouseleave', () => clearTimeout(deepPressTimer));
+        // Also start deep focus on normal click for accessibility
+        deepBtn.addEventListener('click', async (event) => {
             const settings = await chrome.storage.sync.get(['settings']);
-            const duration = settings.settings?.deepFocusDuration || 90;
-            this.startFocusSession(duration, 'deep_work', event);
+            const deepDuration = settings.settings?.deepFocusDuration || 90;
+            this.startFocusSession(deepDuration, 'deep_work', event);
         });
 
         // End session button
@@ -178,25 +198,6 @@ class PopupManager {
         document.getElementById('openOptions').addEventListener('click', () => {
             chrome.runtime.openOptionsPage();
         });
-        
-        // Add manual test button for debugging
-        const testButton = document.createElement('button');
-        testButton.textContent = 'TEST FOCUS';
-        testButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 1000; background: red; color: white; padding: 10px;';
-        testButton.addEventListener('click', async () => {
-            console.log('MANUAL TEST: Starting focus session...');
-            try {
-                const response = await chrome.runtime.sendMessage({
-                    action: 'startFocusSession',
-                    duration: 25,
-                    blocklist: 'deep_work'
-                });
-                console.log('MANUAL TEST: Response:', response);
-            } catch (error) {
-                console.error('MANUAL TEST: Error:', error);
-            }
-        });
-        document.body.appendChild(testButton);
     }
 
     async startFocusSession(duration, blocklist, event) {
@@ -223,6 +224,14 @@ class PopupManager {
 
             if (response.success) {
                 console.log('Popup: Focus session started successfully, reloading status...');
+                // If background returned activeUntil, use it immediately
+                if (response.activeUntil) {
+                    this.currentStatus = {
+                        focusSessionActive: true,
+                        activeUntil: response.activeUntil
+                    };
+                    this.updateUI();
+                }
                 await this.loadStatus();
                 this.showSuccessMessage(`Focus session started for ${duration} minutes`);
             } else {

@@ -8,49 +8,62 @@
 
 ## Installation Steps
 
-### Method 1: Developer Mode (Recommended for Testing)
+### Method 1: Install with GitHub (Recommended)
+
+This is the easiest way to keep the extension up to date.
+
+1. **Clone the repository**
+   - If you have Git installed: `git clone https://github.com/<your-username>/WebWall.git`
+   - Or use GitHub Desktop: File → Clone repository → paste the repo URL
+2. **Open the Extensions page** (Chrome/Edge)
+   - Go to `chrome://extensions/`
+   - Toggle "Developer mode" (top-right)
+3. **Load the extension**
+   - Click "Load unpacked"
+   - Select the folder you cloned (the one that contains `manifest.json`)
+4. **Pin the extension** (optional)
+   - Click the puzzle icon → pin "WebWall"
+
+Updates later:
+- Open the repo folder and run `git pull` (or GitHub Desktop → Pull)
+- Go back to `chrome://extensions/` and click the refresh icon on the WebWall card (or toggle it off/on)
+
+### Method 2: Install without GitHub (Download ZIP)
 
 #### Chrome/Edge
 1. **Download the Extension**
-   - Download this repository as a ZIP file
-   - Extract it to a folder on your computer
-
+   - Click "Code" → "Download ZIP" on the GitHub repository page
+   - Extract the ZIP to a folder on your computer
 2. **Open Extensions Page**
    - Open Chrome/Edge
    - Navigate to `chrome://extensions/`
    - Or go to Menu → More Tools → Extensions
-
 3. **Enable Developer Mode**
    - Toggle the "Developer mode" switch in the top-right corner
-
 4. **Load the Extension**
    - Click "Load unpacked"
-   - Select the folder containing the extracted extension files
+   - Select the folder containing the extracted extension files (must include `manifest.json`)
    - The extension should now appear in your extensions list
-
-5. **Pin the Extension**
+5. **Pin the Extension** (optional)
    - Click the puzzle piece icon in the toolbar
-   - Find "Focus Blocks" and click the pin icon
-   - The extension icon will now appear in your toolbar
+   - Find "WebWall" and click the pin icon
 
 #### Firefox
 1. **Download the Extension**
    - Download this repository as a ZIP file
    - Extract it to a folder on your computer
-
 2. **Open Debugging Page**
    - Open Firefox
    - Navigate to `about:debugging`
    - Click "This Firefox" in the sidebar
-
 3. **Load Temporary Add-on**
    - Click "Load Temporary Add-on"
    - Select the `manifest.json` file from the extension folder
    - The extension will be installed temporarily
 
-**Note**: Firefox temporary add-ons are removed when you restart the browser. For permanent installation, see Method 2.
+**Note**: Firefox temporary add-ons are removed when you restart the browser. For permanent installation, see Method 3.
 
-### Method 2: Web Store Installation (When Available)
+### Method 3: Web Store Installation (When Available)
 
 #### Chrome Web Store
 1. Visit the Chrome Web Store (link will be provided when published)
@@ -67,13 +80,13 @@
 ## First-Time Setup
 
 1. **Click the Extension Icon**
-   - Look for the Focus Blocks icon in your toolbar
+   - Look for the WebWall icon in your toolbar
    - Click it to open the popup
 
 2. **Grant Permissions**
    - The extension may request permissions for:
      - Storage (for settings and data)
-     - Declarative Net Request (for blocking sites)
+     - Declarative Net Request (for site blocking)
      - Alarms (for scheduled sessions)
    - Click "Allow" for all requested permissions
 
@@ -92,16 +105,16 @@
 
 1. **Start a Focus Session**
    - Click the extension icon
-   - Choose "Quick Focus" (25 minutes)
+   - Choose "Quick Focus" (25 minutes) or "Deep Focus" (90 minutes)
    - You should see a confirmation message
 
 2. **Test Site Blocking**
    - Try visiting a blocked site (e.g., instagram.com)
-   - You should be redirected to the focus page
-   - The page will show a countdown timer
+   - For Deep Focus you should be redirected to the blocked page
+   - For Quick Focus the page elements will be hidden
 
 3. **Test Bypass Function**
-   - On the blocked page, hold the "Hold to Bypass" button for 3 seconds
+   - On the blocked page, hold the "Hold to Bypass" button for 10 seconds
    - You should be redirected to the original site
    - This bypass is logged for accountability
 
@@ -133,13 +146,13 @@
 
 ### Chrome/Edge
 1. Go to `chrome://extensions/`
-2. Find "Focus Blocks"
+2. Find "WebWall"
 3. Click "Remove"
 4. Confirm the removal
 
 ### Firefox
 1. Go to `about:addons`
-2. Find "Focus Blocks"
+2. Find "WebWall"
 3. Click "Remove"
 4. Confirm the removal
 

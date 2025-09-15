@@ -89,6 +89,7 @@ class YouTubeBlocker {
                 console.log('YouTube: No active session - removing all blocking');
                 this.clearBlocks();
                 this.isSessionActive = false;
+                this.removeBlockingCSS();
             }
         } catch (error) {
             console.error('Error checking focus session:', error);
@@ -666,96 +667,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ success: true });
             return true;
         }
+        if (message.action === 'forceClear' && youtubeBlocker) {
+            console.log('YouTube: Received forceClear message, clearing all blocks');
+            youtubeBlocker.clearBlocks();
+            youtubeBlocker.removeBlockingCSS();
+            sendResponse({ success: true });
+            return true;
+        }
         
         // Listen for Deep Focus activation
         if (message.action === 'deepFocusActivated' && youtubeBlocker) {
             try {
-                if (typeof youtubeBlocker.showDeepFocusPrompt === 'function') {
-                    youtubeBlocker.showDeepFocusPrompt();
-                    sendResponse({ success: true });
-                } else {
-                    console.error('showDeepFocusPrompt method not found on youtubeBlocker, using fallback');
-                    // Fallback: create the prompt directly with improved responsiveness
-                    const prompt = document.createElement('div');
-                    prompt.style.cssText = `
-                        position: fixed;
-                        top: 50%;
-                        left: 50%;
-                        transform: translate(-50%, -50%);
-                        background: #1a1a1a;
-                        color: white;
-                        padding: 20px;
-                        border-radius: 8px;
-                        z-index: 10000;
-                        font-family: Arial, sans-serif;
-                        text-align: center;
-                        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                        min-width: 300px;
-                    `;
-                    
-                    prompt.innerHTML = `
-                        <h3>Deep Focus Activated</h3>
-                        <p>This site is now blocked. The page will refresh automatically in 3 seconds.</p>
-                        <div style="margin-top: 15px;">
-                            <button id="refresh-now" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 4px; margin-right: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Refresh Now</button>
-                            <button id="refresh-later" style="background: #666; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Refresh Later</button>
-                        </div>
-                    `;
-                    
-                    document.body.appendChild(prompt);
-                    
-                    // Auto-refresh after 3 seconds
-                    const autoRefresh = setTimeout(() => {
-                        if (document.body.contains(prompt)) {
-                            window.location.reload();
-                        }
-                    }, 3000);
-                    
-                    // Manual refresh button - improved event handling
-                    const refreshNowBtn = prompt.querySelector('#refresh-now');
-                    const refreshLaterBtn = prompt.querySelector('#refresh-later');
-                    
-                    // Use multiple event listeners for better responsiveness
-                    const refreshNow = () => {
-                        clearTimeout(autoRefresh);
-                        window.location.reload();
-                    };
-                    
-                    const refreshLater = () => {
-                        clearTimeout(autoRefresh);
-                        if (document.body.contains(prompt)) {
-                            document.body.removeChild(prompt);
-                        }
-                    };
-                    
-                    // Add multiple event listeners for better responsiveness
-                    refreshNowBtn.addEventListener('click', refreshNow, { once: true });
-                    refreshNowBtn.addEventListener('mousedown', refreshNow, { once: true });
-                    refreshNowBtn.addEventListener('touchstart', refreshNow, { once: true });
-                    
-                    refreshLaterBtn.addEventListener('click', refreshLater, { once: true });
-                    refreshLaterBtn.addEventListener('mousedown', refreshLater, { once: true });
-                    refreshLaterBtn.addEventListener('touchstart', refreshLater, { once: true });
-                    
-                    // Add hover effects
-                    refreshNowBtn.addEventListener('mouseenter', () => {
-                        refreshNowBtn.style.background = '#5a67d8';
-                    });
-                    refreshNowBtn.addEventListener('mouseleave', () => {
-                        refreshNowBtn.style.background = '#667eea';
-                    });
-                    
-                    refreshLaterBtn.addEventListener('mouseenter', () => {
-                        refreshLaterBtn.style.background = '#555';
-                    });
-                    refreshLaterBtn.addEventListener('mouseleave', () => {
-                        refreshLaterBtn.style.background = '#666';
-                    });
-                    
-                    sendResponse({ success: true });
-                }
+                // Silently reload the page to apply Deep Focus rules without showing any prompt
+                window.location.reload();
+                sendResponse({ success: true });
             } catch (error) {
-                console.error('Error showing deep focus prompt:', error);
+                console.error('Error reloading page for deep focus:', error);
                 sendResponse({ success: false, error: error.message });
             }
             return true;

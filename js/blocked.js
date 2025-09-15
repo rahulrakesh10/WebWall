@@ -55,7 +55,18 @@ if (fromPattern && fromPattern !== '') {
 // If still no valid URL, use a default
 if (!originalUrl || originalUrl === '' || originalUrl === 'null' || originalUrl === 'undefined') {
     console.log('No valid URL found, using Google as fallback');
-    originalUrl = 'https://www.google.com';
+    // Try harder: inspect current URL's query param target
+    try {
+        const qp = new URLSearchParams(window.location.search);
+        const from = qp.get('from');
+        if (from) {
+            const domainMatch = from.match(/\*:\/\/\*\.([^\/]+)\/*/);
+            if (domainMatch) {
+                originalUrl = `https://www.${domainMatch[1]}`;
+            }
+        }
+    } catch {}
+    if (!originalUrl) originalUrl = 'https://www.google.com';
 }
 
 console.log('Final original URL:', originalUrl);
@@ -149,6 +160,9 @@ function startHold() {
     holdProgress = 0;
     progressBar.style.width = '0%';
     
+    // Use the standard 10-second hold duration
+    bypassHoldDuration = 10000;
+    
     holdTimer = setInterval(() => {
         holdProgress += 100; // Update every 100ms for smooth progress
         const percentage = (holdProgress / bypassHoldDuration) * 100;
@@ -173,86 +187,62 @@ function endHold() {
     holdProgress = 0;
 }
 
-function startHold() {
-    const bypassButton = document.getElementById('bypassButton');
-    const progressBar = document.getElementById('progressBar');
-    
-    bypassButton.classList.add('holding');
-    holdProgress = 0;
-    progressBar.style.width = '0%';
-    
-    holdTimer = setInterval(() => {
-        holdProgress += 50; // Update every 50ms for smooth progress
-        const percentage = (holdProgress / bypassHoldDuration) * 100;
-        progressBar.style.width = `${Math.min(percentage, 100)}%`;
-        
-        if (holdProgress >= bypassHoldDuration) {
-            bypassSite();
-        }
-    }, 50);
-}
-
-function endHold() {
-    if (holdTimer) {
-        clearInterval(holdTimer);
-        holdTimer = null;
-    }
-    const bypassButton = document.getElementById('bypassButton');
-    const progressBar = document.getElementById('progressBar');
-    
-    bypassButton.classList.remove('holding');
-    progressBar.style.width = '0%';
-    holdProgress = 0;
-}
-
 function bypassSite() {
     console.log('=== BYPASS FUNCTION CALLED ===');
+    console.log('Original URL from pattern:', originalUrl);
+    console.log('From pattern:', fromPattern);
     
-    // Immediately end the focus session
-    chrome.runtime.sendMessage({ action: 'endFocusSession' }, (response) => {
-        console.log('Session end response:', response);
+    // Determine redirect URL - prioritize the original URL we detected
+    let redirectUrl = originalUrl;
+    
+    // If we don't have a good original URL, try to construct it from the pattern
+    if (!redirectUrl || redirectUrl === 'undefined' || redirectUrl === 'null' || redirectUrl === '') {
+        console.log('No valid original URL, constructing from pattern...');
         
+        if (fromPattern) {
+            // Convert pattern back to URL
+            if (fromPattern.includes('instagram.com')) {
+                redirectUrl = 'https://www.instagram.com';
+            } else if (fromPattern.includes('youtube.com')) {
+                redirectUrl = 'https://www.youtube.com';
+            } else if (fromPattern.includes('reddit.com')) {
+                redirectUrl = 'https://www.reddit.com';
+            } else if (fromPattern.includes('twitter.com') || fromPattern.includes('x.com')) {
+                redirectUrl = 'https://www.twitter.com';
+            } else if (fromPattern.includes('facebook.com')) {
+                redirectUrl = 'https://www.facebook.com';
+            } else if (fromPattern.includes('tiktok.com')) {
+                redirectUrl = 'https://www.tiktok.com';
+            }
+        }
+        
+        // Final fallback
+        if (!redirectUrl) {
+            redirectUrl = 'https://www.instagram.com'; // Default to Instagram
+        }
+    }
+    
+    console.log('Final redirect URL:', redirectUrl);
+
+    // Request a temporary bypass for this domain without ending the session
+    const targetForBypass = fromPattern || redirectUrl;
+    chrome.runtime.sendMessage({ action: 'temporaryBypass', target: targetForBypass, minutes: 5 }, (response) => {
+        console.log('Temporary bypass response:', response);
+
         // Log the bypass
         chrome.storage.local.get(['bypassLog'], (data) => {
             const bypassLog = data.bypassLog || [];
             bypassLog.push({
                 timestamp: Date.now(),
-                url: originalUrl,
-                reason: 'Manual bypass - session ended'
+                url: redirectUrl,
+                reason: 'Manual bypass - temporary (5m)'
             });
             chrome.storage.local.set({ bypassLog: bypassLog.slice(-100) });
         });
-        
-        // Force redirect to Instagram (or the detected site)
-        let redirectUrl = 'https://www.instagram.com'; // Default
-        
-        // Try to determine the correct site from the pattern
-        if (originalUrl && originalUrl !== 'undefined' && originalUrl !== 'null') {
-            redirectUrl = originalUrl;
-        } else {
-            // Fallback: try to detect from current URL or referrer
-            const currentUrl = window.location.href;
-            if (currentUrl.includes('instagram')) {
-                redirectUrl = 'https://www.instagram.com';
-            } else if (currentUrl.includes('youtube')) {
-                redirectUrl = 'https://www.youtube.com';
-            } else if (currentUrl.includes('reddit')) {
-                redirectUrl = 'https://www.reddit.com';
-            } else if (currentUrl.includes('twitter') || currentUrl.includes('x.com')) {
-                redirectUrl = 'https://www.twitter.com';
-            } else if (currentUrl.includes('facebook')) {
-                redirectUrl = 'https://www.facebook.com';
-            } else if (currentUrl.includes('tiktok')) {
-                redirectUrl = 'https://www.tiktok.com';
-            }
-        }
-        
+
+        // Redirect back to the original site immediately
         console.log('Redirecting to:', redirectUrl);
-        
-        // Force the redirect
-        setTimeout(() => {
-            window.location.href = redirectUrl;
-        }, 100);
+        window.location.replace(redirectUrl);
     });
 }
 

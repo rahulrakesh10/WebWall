@@ -165,19 +165,26 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
   console.log('Starting focus session:', { durationMinutes, isDeepFocus, patterns });
   
   if (isDeepFocus) {
+    // Deep Focus should override any temporary per-site bypasses
+    try {
+      await chrome.storage.sync.remove(BYPASS_KEY);
+    } catch (_) {}
+
     // Deep Focus: Block entire sites using DNR with redirect to blocked page
     console.log('Setting up Deep Focus DNR rules');
     await setBlockRules(patterns, true, 'FOCUS_SESSION');
     
-    // Notify all tabs to refresh for Deep Focus
+    // Silently reload relevant tabs so DNR blocking takes effect immediately
     const tabs = await chrome.tabs.query({});
+    const relevantDomains = ['instagram.com', 'youtube.com', 'reddit.com', 'twitter.com', 'x.com', 'facebook.com', 'tiktok.com'];
     tabs.forEach(tab => {
-      chrome.tabs.sendMessage(tab.id, { 
-        action: 'deepFocusActivated',
-        message: 'Deep Focus activated! Refreshing page to apply site blocking...'
-      }).catch(() => {
-        // Ignore errors for tabs without content scripts
-      });
+      if (tab.url && relevantDomains.some(domain => tab.url.includes(domain))) {
+        try {
+          chrome.tabs.reload(tab.id);
+        } catch (e) {
+          // Ignore errors
+        }
+      }
     });
   } else {
     // Quick Focus: Only content scripts will block elements (no DNR rules)
@@ -217,12 +224,12 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon48.png',
-      title: 'Focus Session Started',
-      message: `${isDeepFocus ? 'Deep Focus' : 'Quick Focus'} session started for ${durationMinutes} minutes`
+      title: isDeepFocus ? 'Deep Focus Started' : 'Focus Started',
+      message: isDeepFocus ? 'Distracting sites will be fully blocked' : 'Distractions will be hidden'
     });
   }
   
-  return { success: true, endTime };
+  return { success: true, activeUntil: endTime, isDeepFocus };
 }
 
 // End focus session
@@ -245,6 +252,18 @@ async function endFocusSession() {
   setTimeout(() => {
     console.log('Background: Broadcasting session change and refreshing tabs');
     broadcastSessionChange();
+    // Proactively tell scripts to clear any UI-blocking styles immediately
+    chrome.tabs.query({}, (tabs) => {
+      const relevantSites = ['instagram.com', 'youtube.com', 'reddit.com', 'twitter.com', 'x.com'];
+      tabs.forEach(tab => {
+        if (tab.url && relevantSites.some(site => tab.url.includes(site))) {
+          console.log(`Sending forceClear to ${tab.url}`);
+          chrome.tabs.sendMessage(tab.id, { action: 'forceClear' }).catch((error) => {
+            console.log(`Could not send forceClear to ${tab.url}:`, error.message);
+          });
+        }
+      });
+    });
     refreshBlockedTabs();
   }, 100);
   
@@ -372,12 +391,101 @@ function refreshBlockedTabs() {
   });
 }
 
+// Temporary per-site bypass tracking
+const BYPASS_KEY = 'temporaryBypasses'; // { [domain]: expiresAt }
+
+async function getBypasses() {
+  const data = await chrome.storage.sync.get([BYPASS_KEY]);
+  return data[BYPASS_KEY] || {};
+}
+
+async function setBypasses(bypasses) {
+  await chrome.storage.sync.set({ [BYPASS_KEY]: bypasses });
+}
+
+function extractDomain(urlOrPattern) {
+  try {
+    if (!urlOrPattern) return '';
+    if (urlOrPattern.startsWith('*://*.')) {
+      // pattern like *://*.youtube.com/*
+      const m = urlOrPattern.match(/\*:\/\/\*\.([^/]+)\/*/);
+      return m ? m[1] : '';
+    }
+    const u = new URL(urlOrPattern);
+    return u.hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+async function applyBypassesToRules(patterns) {
+  const bypasses = await getBypasses();
+  const now = Date.now();
+  const activeBypassedDomains = Object.entries(bypasses)
+    .filter(([, expires]) => expires > now)
+    .map(([domain]) => domain);
+
+  if (activeBypassedDomains.length === 0) return patterns;
+
+  // Filter out any pattern whose domain is currently bypassed
+  return patterns.filter(p => {
+    const domain = extractDomain(p);
+    return !activeBypassedDomains.includes(domain);
+  });
+}
+
+// Override setBlockRules wrapper when called for FOCUS_SESSION to respect bypasses
+const originalSetBlockRules = setBlockRules;
+setBlockRules = async function(patterns, enable, type = 'CUSTOM') {
+  let effectivePatterns = patterns;
+  if (enable && type === 'FOCUS_SESSION') {
+    effectivePatterns = await applyBypassesToRules(patterns);
+  }
+  return originalSetBlockRules(effectivePatterns, enable, type);
+};
+
+async function requestTemporaryBypass(targetUrlOrPattern, minutes = 5) {
+  const domain = extractDomain(targetUrlOrPattern);
+  if (!domain) return { success: false, error: 'Could not determine domain' };
+
+  const bypasses = await getBypasses();
+  const expiresAt = Date.now() + minutes * 60 * 1000;
+  bypasses[domain] = Math.max(bypasses[domain] || 0, expiresAt);
+  await setBypasses(bypasses);
+
+  // Re-apply DNR rules for current session so the bypass takes effect immediately
+  const data = await chrome.storage.sync.get(['lists', 'activeFocusUntil', 'focusSessionActive']);
+  if (data.focusSessionActive && data.activeFocusUntil && data.activeFocusUntil > Date.now()) {
+    const patterns = (data.lists && data.lists.deep_work) || DEFAULT_LISTS.deep_work;
+    await setBlockRules(patterns, true, 'FOCUS_SESSION');
+  }
+
+  // Schedule cleanup alarm
+  chrome.alarms.create(`bypass:${domain}`, { delayInMinutes: minutes });
+
+  return { success: true, domain, expiresAt };
+}
+
 // Handle alarm events
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'focusSessionEnd') {
     await endFocusSession();
   } else if (alarm.name.startsWith('schedule_')) {
     await handleScheduleAlarm(alarm);
+  } else if (alarm.name.startsWith('bypass:')) {
+    const domain = alarm.name.split(':')[1];
+    const bypasses = await getBypasses();
+    const now = Date.now();
+    if (bypasses[domain] && bypasses[domain] <= now) {
+      delete bypasses[domain];
+      await setBypasses(bypasses);
+      // Re-apply rules to restore block
+      const data = await chrome.storage.sync.get(['lists', 'activeFocusUntil', 'focusSessionActive']);
+      if (data.focusSessionActive && data.activeFocusUntil && data.activeFocusUntil > Date.now()) {
+        const patterns = (data.lists && data.lists.deep_work) || DEFAULT_LISTS.deep_work;
+        await setBlockRules(patterns, true, 'FOCUS_SESSION');
+      }
+    }
   }
 });
 
@@ -412,6 +520,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('Background: Test message received, responding...');
       sendResponse({ success: true, message: 'Background script is working' });
       return true;
+    case 'temporaryBypass':
+      requestTemporaryBypass(message.target, message.minutes || 5)
+        .then(sendResponse)
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
     case 'startFocusSession':
       startFocusSession(message.duration, message.blocklist)
         .then(sendResponse)
@@ -433,14 +546,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'getStatus':
       console.log('Background: getStatus request received');
-      chrome.storage.sync.get(['activeFocusUntil', 'focusSessionActive', 'schedules'])
+      chrome.storage.sync.get(['activeFocusUntil', 'focusSessionActive', 'schedules', 'isDeepFocus'])
         .then(data => {
           console.log('Background: getStatus - raw storage data:', data);
           const isActive = data.focusSessionActive && data.activeFocusUntil && data.activeFocusUntil > Date.now();
           const response = {
             focusSessionActive: isActive,
             activeUntil: data.activeFocusUntil,
-            schedules: data.schedules || []
+            schedules: data.schedules || [],
+            isDeepFocus: !!data.isDeepFocus
           };
           console.log('Background: getStatus - calculated response:', response);
           console.log('Background: getStatus - isActive calculation:', {
