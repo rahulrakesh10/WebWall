@@ -3,6 +3,8 @@ class YouTubeBlocker {
     constructor() {
         this.blockedElements = new Set();
         this.observer = null;
+        // Track whether we currently have an active, non-deep focus session
+        this.isSessionActive = false;
         this.config = {
             blockShorts: true,
             blockHomeFeed: true,
@@ -53,6 +55,7 @@ class YouTubeBlocker {
             if (!chrome.runtime?.id) {
                 console.log('Extension context invalid, clearing blocks');
                 this.clearBlocks();
+                this.isSessionActive = false;
                 return;
             }
 
@@ -74,18 +77,22 @@ class YouTubeBlocker {
                     // Deep Focus: Don't apply element blocking (site is blocked by DNR)
                     console.log('YouTube: Deep Focus active - site blocked by DNR');
                     this.removeBlockingCSS();
+                    this.isSessionActive = false;
                 } else {
                     // Quick Focus: Apply element blocking
                     console.log('YouTube: Quick Focus active - applying element blocking');
+                    this.isSessionActive = true;
                     this.injectBlockingCSS();
                 }
             } else {
                 // No active session: Remove all blocking
                 console.log('YouTube: No active session - removing all blocking');
                 this.clearBlocks();
+                this.isSessionActive = false;
             }
         } catch (error) {
             console.error('Error checking focus session:', error);
+            this.isSessionActive = false;
         }
     }
 
@@ -102,112 +109,57 @@ class YouTubeBlocker {
         // Create and inject CSS
         const style = document.createElement('style');
         style.id = 'webwall-blocking-css';
-        style.textContent = `
-            /* Completely hide YouTube content during focus sessions */
-            
-            /* Hide main video grid and content */
-            ytd-rich-grid-renderer {
-                display: none !important;
-            }
-            
-            ytd-rich-grid-row {
-                display: none !important;
-            }
-            
-            ytd-rich-item-renderer {
-                display: none !important;
-            }
-            
-            /* Hide all video sections */
-            ytd-rich-section-renderer {
-                display: none !important;
-            }
-            
-            ytd-rich-shelf-renderer {
-                display: none !important;
-            }
-            
-            /* Hide video thumbnails */
-            ytd-rich-grid-media {
-                display: none !important;
-            }
-            
-            /* Hide Shorts content */
-            ytd-rich-section-renderer[is-shorts] {
-                display: none !important;
-            }
-            
-            ytd-rich-shelf-renderer[is-shorts] {
-                display: none !important;
-            }
-            
-            /* Hide Shorts navigation - more aggressive selectors */
-            a[href="/shorts/"] {
-                display: none !important;
-            }
-            
-            a[href^="/shorts/"] {
-                display: none !important;
-            }
-            
-            ytd-guide-entry-renderer[title="Shorts"] {
-                display: none !important;
-            }
-            
-            ytd-mini-guide-entry-renderer[title="Shorts"] {
-                display: none !important;
-            }
-            
-            /* Hide any element with title="Shorts" */
+        const path = window.location.pathname;
+        const isWatchPage = path === '/watch';
+        const isHomeOrBrowse = path === '/' || path.startsWith('/feed') || path.startsWith('/channel') || path.startsWith('/@') || path.startsWith('/c/');
+        const isSearch = path === '/results';
+
+        let css = '';
+
+        if (isWatchPage) {
+            // On the watch page: keep the player and primary info, hide suggestions and comments
+            css += `
+                /* Watch page: hide distractions only */
+                ytd-watch-flexy #secondary,
+                ytd-watch-flexy #related,
+                ytd-watch-next-secondary-results-renderer,
+                ytd-comments,
+                ytd-engagement-panel-section-list-renderer {
+                    display: none !important;
+                }
+            `;
+        }
+
+        if (isHomeOrBrowse || isSearch) {
+            // On home, subscriptions, trending, channels, and search: hide video grids and shelves
+            css += `
+                /* Feed/Search pages: hide grids and shelves */
+                ytd-rich-grid-renderer,
+                ytd-rich-grid-row,
+                ytd-rich-item-renderer,
+                ytd-rich-section-renderer,
+                ytd-rich-shelf-renderer,
+                ytd-rich-grid-media {
+                    display: none !important;
+                }
+            `;
+        }
+
+        // Shorts hiding everywhere
+        css += `
+            /* Hide Shorts everywhere */
+            ytd-rich-section-renderer[is-shorts],
+            ytd-rich-shelf-renderer[is-shorts],
+            a[href="/shorts/"],
+            a[href^="/shorts/"],
+            ytd-guide-entry-renderer[title="Shorts"],
+            ytd-mini-guide-entry-renderer[title="Shorts"],
             [title="Shorts"] {
                 display: none !important;
             }
-            
-            /* Hide any element containing "Shorts" text */
-            ytd-guide-entry-renderer:has(span:contains("Shorts")) {
-                display: none !important;
-            }
-            
-            ytd-mini-guide-entry-renderer:has(span:contains("Shorts")) {
-                display: none !important;
-            }
-            
-            /* Hide the entire Shorts navigation item */
-            ytd-guide-entry-renderer:has(a[href="/shorts/"]) {
-                display: none !important;
-            }
-            
-            ytd-mini-guide-entry-renderer:has(a[href="/shorts/"]) {
-                display: none !important;
-            }
-            
-            /* Hide any element that contains "Shorts" text */
-            *:contains("Shorts") {
-                display: none !important;
-            }
-            
-            /* Hide sidebar recommendations when watching videos */
-            ytd-watch-flexy #secondary {
-                display: none !important;
-            }
-            
-            ytd-watch-flexy #related {
-                display: none !important;
-            }
-            
-            ytd-watch-next-secondary-results-renderer {
-                display: none !important;
-            }
-            
-            /* Hide main content areas */
-            #contents {
-                display: none !important;
-            }
-            
-            #primary {
-                display: none !important;
-            }
         `;
+
+        style.textContent = css;
         
         // Inject immediately to prevent flash
         if (document.head) {
@@ -219,8 +171,8 @@ class YouTubeBlocker {
             });
         }
         
-        console.log('Injected YouTube blocking CSS - hiding Shorts and distracting content');
-        
+        console.log('Injected YouTube blocking CSS - path:', path);
+
         // Also use JavaScript to hide elements that CSS might miss
         setTimeout(() => {
             this.hideShortsWithJavaScript();
@@ -313,17 +265,34 @@ class YouTubeBlocker {
     }
 
     hideShortsWithJavaScript() {
+        if (!this.isSessionActive) {
+            // Do nothing if there is no active session
+            return;
+        }
         console.log('Using JavaScript to hide YouTube content elements');
         
-        // Hide main video content
-        const videoSelectors = [
-            'ytd-rich-grid-renderer',
-            'ytd-rich-grid-row', 
-            'ytd-rich-item-renderer',
-            'ytd-rich-section-renderer',
-            'ytd-rich-shelf-renderer',
-            'ytd-rich-grid-media'
-        ];
+        const path = window.location.pathname;
+        const isWatchPage = path === '/watch';
+
+        // Hide content based on page type
+        const videoSelectors = isWatchPage
+            ? [
+                // On watch page, hide sidebar suggestions and comments only
+                'ytd-watch-flexy #secondary',
+                'ytd-watch-flexy #related',
+                'ytd-watch-next-secondary-results-renderer',
+                'ytd-comments',
+                'ytd-engagement-panel-section-list-renderer'
+              ]
+            : [
+                // On feeds/search/channels, hide grids and shelves
+                'ytd-rich-grid-renderer',
+                'ytd-rich-grid-row', 
+                'ytd-rich-item-renderer',
+                'ytd-rich-section-renderer',
+                'ytd-rich-shelf-renderer',
+                'ytd-rich-grid-media'
+              ];
         
         videoSelectors.forEach(selector => {
             const elements = document.querySelectorAll(selector);
@@ -348,7 +317,7 @@ class YouTubeBlocker {
                 console.log('Hidden Shorts element:', selector);
             });
         });
-        
+ 
         // Also hide any element containing "Shorts" text
         const allElements = document.querySelectorAll('*');
         allElements.forEach(element => {
@@ -363,7 +332,7 @@ class YouTubeBlocker {
                 }
             }
         });
-        
+ 
         // Hide parent containers of Shorts elements
         const shortsElements = document.querySelectorAll('a[href="/shorts/"], a[href^="/shorts/"]');
         shortsElements.forEach(element => {
@@ -373,21 +342,22 @@ class YouTubeBlocker {
                 console.log('Hidden Shorts parent container:', parent);
             }
         });
-        
-        // Hide sidebar recommendations
-        const sidebarSelectors = [
-            'ytd-watch-flexy #secondary',
-            'ytd-watch-flexy #related',
-            'ytd-watch-next-secondary-results-renderer'
-        ];
-        
-        sidebarSelectors.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(element => {
-                element.style.display = 'none';
-                console.log('Hidden sidebar element:', selector);
+ 
+        if (!isWatchPage) {
+            // Additional cleanup only on non-watch pages
+            const sidebarSelectors = [
+                'ytd-watch-flexy #secondary',
+                'ytd-watch-flexy #related',
+                'ytd-watch-next-secondary-results-renderer'
+            ];
+            sidebarSelectors.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(element => {
+                    element.style.display = 'none';
+                    console.log('Hidden sidebar element:', selector);
+                });
             });
-        });
+        }
     }
 
     setupObserver() {
@@ -459,7 +429,7 @@ class YouTubeBlocker {
                 }, 100);
             }
             
-            if (shouldHideShorts) {
+            if (shouldHideShorts && this.isSessionActive) {
                 clearTimeout(this.shortsTimeout);
                 this.shortsTimeout = setTimeout(() => {
                     this.hideShortsWithJavaScript();

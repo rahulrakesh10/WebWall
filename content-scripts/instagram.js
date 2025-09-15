@@ -383,10 +383,33 @@ class InstagramBlocker {
         });
 
         // Start observing
-        this.observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        const tryStartObserving = () => {
+            // Prefer the root element, fall back to the Document itself (which is a Node)
+            const candidate = (typeof document !== 'undefined') 
+                ? (document.documentElement || document)
+                : null;
+            if (!candidate) {
+                setTimeout(tryStartObserving, 100);
+                return;
+            }
+            try {
+                this.observer.observe(candidate, {
+                    childList: true,
+                    subtree: true
+                });
+                // console.log('Instagram: MutationObserver attached');
+            } catch (error) {
+                console.error('Instagram: Error observing document (will retry):', error);
+                setTimeout(tryStartObserving, 250);
+            }
+        };
+
+        // Kick off attempt and also listen for readiness events
+        tryStartObserving();
+        if (document && document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', tryStartObserving, { once: true });
+        }
+        window.addEventListener('load', tryStartObserving, { once: true });
     }
 
     handleUrlChanges() {
