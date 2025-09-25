@@ -103,7 +103,7 @@ class OptionsManager {
         
         const descriptions = {
             workday: 'Block social media during work hours',
-            deep_work: 'Block all distracting sites for deep focus',
+            deep_work: 'Block all distracting sites for deep focus (including custom sites)',
             social_media: 'Block social media platforms only'
         };
 
@@ -119,8 +119,12 @@ class OptionsManager {
                 `).join('')}
             </div>
             <div class="add-site-form">
-                <input type="text" placeholder="Add site (e.g., *.youtube.com/*)" data-list="${name}">
-                <button onclick="optionsManager.addSite('${name}', this.previousElementSibling)">Add</button>
+                <input type="text" placeholder="Add site (e.g., example.com)" data-list="${name}">
+                <button>Add</button>
+            </div>
+            <div class="site-help" style="font-size: 0.8rem; color: #718096; margin-top: 0.5rem;">
+                💡 Tip: Just enter the domain name (e.g., "example.com") and we'll format it automatically
+                ${name === 'deep_work' ? '<br/>🚀 Custom sites will be fully blocked during Deep Focus sessions' : ''}
             </div>
         `;
 
@@ -131,6 +135,16 @@ class OptionsManager {
             });
         });
 
+        // Wire up the Add button without inline handlers (MV3 CSP compliant)
+        const addForm = card.querySelector('.add-site-form');
+        if (addForm) {
+            const input = addForm.querySelector('input');
+            const addBtn = addForm.querySelector('button');
+            if (addBtn && input) {
+                addBtn.addEventListener('click', () => this.addSite(name, input));
+            }
+        }
+
         return card;
     }
 
@@ -140,29 +154,59 @@ class OptionsManager {
 
     async addSite(listName, inputElement) {
         const site = inputElement.value.trim();
-        if (!site) return;
+        if (!site) {
+            this.showErrorMessage('Please enter a website to add');
+            return;
+        }
 
         if (!this.lists[listName]) {
             this.lists[listName] = [];
         }
 
+        // Check if site already exists
+        const existingSite = this.lists[listName].find(existing => 
+            this.formatSiteName(existing).toLowerCase() === this.formatSiteName(site).toLowerCase()
+        );
+        
+        if (existingSite) {
+            this.showErrorMessage('This website is already in the list');
+            return;
+        }
+
         // Format the site pattern
         let formattedSite = site;
-        if (!site.startsWith('*://')) {
-            if (site.includes('://')) {
-                formattedSite = `*://${site.split('://')[1]}`;
-            } else {
-                formattedSite = `*://*.${site}`;
-            }
+        
+        // Handle different input formats
+        if (site.startsWith('http://') || site.startsWith('https://')) {
+            // Remove protocol
+            formattedSite = site.replace(/^https?:\/\//, '');
         }
+        
+        if (!formattedSite.startsWith('*://')) {
+            // Add the wildcard protocol and path
+            formattedSite = `*://*.${formattedSite}`;
+        }
+        
         if (!formattedSite.endsWith('/*')) {
             formattedSite += '/*';
+        }
+
+        // Validate the pattern
+        try {
+            // Basic validation - check if it looks like a valid domain pattern
+            if (!formattedSite.match(/^\*:\/\/\*\.[^/]+\/\*$/)) {
+                throw new Error('Invalid domain pattern');
+            }
+        } catch (error) {
+            this.showErrorMessage('Please enter a valid domain (e.g., example.com)');
+            return;
         }
 
         this.lists[listName].push(formattedSite);
         await this.saveLists();
         this.renderBlocklists();
         inputElement.value = '';
+        this.showSuccessMessage(`Added ${this.formatSiteName(site)} to ${listName.replace('_', ' ')} list`);
     }
 
     async removeSite(listName, site) {
@@ -224,7 +268,7 @@ class OptionsManager {
 
     async saveSchedule() {
         const name = document.getElementById('scheduleName').value.trim();
-        const list = document.getElementById('scheduleList').value;
+        const list = document.getElementById('scheduleBlocklist').value;
         const startTime = document.getElementById('startTime').value;
         const endTime = document.getElementById('endTime').value;
         
@@ -258,6 +302,7 @@ class OptionsManager {
         await this.saveSchedules();
         this.renderSchedules();
         this.clearScheduleForm();
+        this.showSuccessMessage(`Schedule "${name}" created successfully!`);
     }
 
     async saveSchedules() {
@@ -281,7 +326,7 @@ class OptionsManager {
 
     clearScheduleForm() {
         document.getElementById('scheduleName').value = '';
-        document.getElementById('scheduleList').value = 'workday';
+        document.getElementById('scheduleBlocklist').value = 'workday';
         document.getElementById('startTime').value = '09:00';
         document.getElementById('endTime').value = '17:00';
         document.querySelectorAll('.days-selector input').forEach(cb => cb.checked = false);
@@ -345,6 +390,52 @@ class OptionsManager {
         message.classList.add('show');
         setTimeout(() => {
             message.classList.remove('show');
+        }, 3000);
+    }
+
+    showSuccessMessage(text) {
+        this.showMessage(text, '#48bb78');
+    }
+
+    showErrorMessage(text) {
+        this.showMessage(text, '#f56565');
+    }
+
+    showMessage(text, color) {
+        // Create a temporary message
+        const messageDiv = document.createElement('div');
+        messageDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${color};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+            font-size: 0.9rem;
+        `;
+        messageDiv.textContent = text;
+        
+        document.body.appendChild(messageDiv);
+        
+        // Animate in
+        setTimeout(() => {
+            messageDiv.style.transform = 'translateX(0)';
+        }, 100);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            messageDiv.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (document.body.contains(messageDiv)) {
+                    document.body.removeChild(messageDiv);
+                }
+            }, 300);
         }, 3000);
     }
 }

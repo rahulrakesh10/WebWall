@@ -177,8 +177,25 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
     // Silently reload relevant tabs so DNR blocking takes effect immediately
     const tabs = await chrome.tabs.query({});
     const relevantDomains = ['instagram.com', 'youtube.com', 'reddit.com', 'twitter.com', 'x.com', 'facebook.com', 'tiktok.com'];
+    
+    // Also extract domains from custom patterns
+    const customDomains = patterns
+      .filter(pattern => !relevantDomains.some(domain => pattern.includes(domain)))
+      .map(pattern => {
+        try {
+          // Extract domain from pattern like "*://*.example.com/*"
+          const match = pattern.match(/\*:\/\/\*\.([^/]+)\/*/);
+          return match ? match[1] : null;
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(domain => domain);
+    
+    const allRelevantDomains = [...relevantDomains, ...customDomains];
+    
     tabs.forEach(tab => {
-      if (tab.url && relevantDomains.some(domain => tab.url.includes(domain))) {
+      if (tab.url && allRelevantDomains.some(domain => tab.url.includes(domain))) {
         try {
           chrome.tabs.reload(tab.id);
         } catch (e) {
@@ -223,7 +240,7 @@ async function startFocusSession(durationMinutes, blocklistName = 'deep_work') {
   if (chrome.notifications) {
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icons/icon48.png',
+      iconUrl: 'icons/optimized/icon48.png',
       title: isDeepFocus ? 'Deep Focus Started' : 'Focus Started',
       message: isDeepFocus ? 'Distracting sites will be fully blocked' : 'Distractions will be hidden'
     });
@@ -270,7 +287,7 @@ async function endFocusSession() {
   if (chrome.notifications) {
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icons/icon48.png',
+      iconUrl: 'icons/optimized/icon48.png',
       title: 'Focus Session Ended',
       message: 'Distracting sites are now accessible again'
     });
@@ -284,55 +301,71 @@ async function setupScheduleAlarms() {
   const data = await chrome.storage.sync.get(['schedules']);
   const schedules = data.schedules || [];
   
-  // Clear existing schedule alarms
+  // Clear existing schedule alarms (both old and new format)
   const alarms = await chrome.alarms.getAll();
   const scheduleAlarms = alarms.filter(alarm => alarm.name.startsWith('schedule_'));
   await Promise.all(scheduleAlarms.map(alarm => chrome.alarms.clear(alarm.name)));
   
+  console.log(`Cleared ${scheduleAlarms.length} existing schedule alarms`);
+  
   // Create new alarms for each schedule
   for (const schedule of schedules) {
     if (schedule.enabled) {
+      console.log(`Setting up alarms for schedule: ${schedule.name}`);
       await createScheduleAlarms(schedule);
     }
   }
+  
+  console.log(`Setup complete for ${schedules.length} schedules`);
 }
 
 // Create alarms for a specific schedule
 async function createScheduleAlarms(schedule) {
   const now = new Date();
-  const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const [startHour, startMinute] = schedule.start.split(':').map(Number);
+  const [endHour, endMinute] = schedule.end.split(':').map(Number);
   
-  if (schedule.days.includes(today)) {
-    const [startHour, startMinute] = schedule.start.split(':').map(Number);
-    const [endHour, endMinute] = schedule.end.split(':').map(Number);
+  // Create alarms for each day in the schedule
+  for (const dayOfWeek of schedule.days) {
+    // Calculate next occurrence of this day
+    const nextOccurrence = getNextOccurrenceOfDay(dayOfWeek, startHour, startMinute);
+    const endOccurrence = getNextOccurrenceOfDay(dayOfWeek, endHour, endMinute);
     
-    const startTime = new Date();
-    startTime.setHours(startHour, startMinute, 0, 0);
-    
-    const endTime = new Date();
-    endTime.setHours(endHour, endMinute, 0, 0);
-    
-    // If start time has passed today, schedule for tomorrow
-    if (startTime <= now) {
-      startTime.setDate(startTime.getDate() + 1);
+    // Only create alarms if the times are in the future
+    if (nextOccurrence > now) {
+      const startDelay = Math.max(0, nextOccurrence.getTime() - now.getTime());
+      const endDelay = Math.max(0, endOccurrence.getTime() - now.getTime());
+      
+      await chrome.alarms.create(`schedule_${schedule.id}_${dayOfWeek}_start`, {
+        delayInMinutes: startDelay / 60000
+      });
+      
+      await chrome.alarms.create(`schedule_${schedule.id}_${dayOfWeek}_end`, {
+        delayInMinutes: endDelay / 60000
+      });
     }
-    
-    // If end time has passed today, schedule for tomorrow
-    if (endTime <= now) {
-      endTime.setDate(endTime.getDate() + 1);
-    }
-    
-    const startDelay = Math.max(0, startTime.getTime() - now.getTime());
-    const endDelay = Math.max(0, endTime.getTime() - now.getTime());
-    
-    await chrome.alarms.create(`schedule_${schedule.id}_start`, {
-      delayInMinutes: startDelay / 60000
-    });
-    
-    await chrome.alarms.create(`schedule_${schedule.id}_end`, {
-      delayInMinutes: endDelay / 60000
-    });
   }
+}
+
+// Helper function to get next occurrence of a specific day and time
+function getNextOccurrenceOfDay(dayOfWeek, hour, minute) {
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hour, minute, 0, 0);
+  
+  // Calculate days until next occurrence
+  const daysUntilTarget = (dayOfWeek - now.getDay() + 7) % 7;
+  
+  if (daysUntilTarget === 0) {
+    // Same day - check if time has passed
+    if (target <= now) {
+      target.setDate(target.getDate() + 7); // Next week
+    }
+  } else {
+    target.setDate(target.getDate() + daysUntilTarget);
+  }
+  
+  return target;
 }
 
 // Broadcast session changes to content scripts
@@ -370,8 +403,8 @@ function broadcastSessionChange() {
 }
 
 // Refresh tabs that were blocked during focus session
-function refreshBlockedTabs() {
-  const blockedDomains = [
+async function refreshBlockedTabs() {
+  const defaultBlockedDomains = [
     'instagram.com',
     'youtube.com', 
     'reddit.com',
@@ -381,9 +414,32 @@ function refreshBlockedTabs() {
     'tiktok.com'
   ];
   
+  // Get custom domains from storage
+  let customDomains = [];
+  try {
+    const data = await chrome.storage.sync.get(['lists']);
+    if (data.lists && data.lists.deep_work) {
+      customDomains = data.lists.deep_work
+        .filter(pattern => !defaultBlockedDomains.some(domain => pattern.includes(domain)))
+        .map(pattern => {
+          try {
+            const match = pattern.match(/\*:\/\/\*\.([^/]+)\/*/);
+            return match ? match[1] : null;
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(domain => domain);
+    }
+  } catch (error) {
+    console.error('Error getting custom domains:', error);
+  }
+  
+  const allBlockedDomains = [...defaultBlockedDomains, ...customDomains];
+  
   chrome.tabs.query({}, (tabs) => {
     tabs.forEach(tab => {
-      if (tab.url && blockedDomains.some(domain => tab.url.includes(domain))) {
+      if (tab.url && allBlockedDomains.some(domain => tab.url.includes(domain))) {
         console.log(`Refreshing blocked tab: ${tab.url}`);
         chrome.tabs.reload(tab.id);
       }
@@ -493,7 +549,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 async function handleScheduleAlarm(alarm) {
   const parts = alarm.name.split('_');
   const scheduleId = parts[1];
-  const action = parts[2]; // 'start' or 'end'
+  const dayOfWeek = parts[2];
+  const action = parts[3]; // 'start' or 'end'
   
   const data = await chrome.storage.sync.get(['schedules', 'lists']);
   const schedule = data.schedules.find(s => s.id === scheduleId);
@@ -504,10 +561,53 @@ async function handleScheduleAlarm(alarm) {
   
   if (action === 'start') {
     await setBlockRules(patterns, true, 'SCHEDULE');
-    console.log(`Schedule ${schedule.name} started`);
+    console.log(`Schedule ${schedule.name} started for day ${dayOfWeek}`);
+    
+    // Show notification if enabled
+    if (chrome.notifications) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/optimized/icon48.png',
+        title: 'Focus Schedule Started',
+        message: `${schedule.name} is now active - distracting sites are blocked`
+      });
+    }
+    
+    // Schedule the next occurrence
+    await scheduleNextOccurrence(schedule, dayOfWeek, action);
   } else if (action === 'end') {
     await setBlockRules(patterns, false, 'SCHEDULE');
-    console.log(`Schedule ${schedule.name} ended`);
+    console.log(`Schedule ${schedule.name} ended for day ${dayOfWeek}`);
+    
+    // Show notification if enabled
+    if (chrome.notifications) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/optimized/icon48.png',
+        title: 'Focus Schedule Ended',
+        message: `${schedule.name} has ended - sites are accessible again`
+      });
+    }
+    
+    // Schedule the next occurrence
+    await scheduleNextOccurrence(schedule, dayOfWeek, action);
+  }
+}
+
+// Schedule the next occurrence of a schedule
+async function scheduleNextOccurrence(schedule, dayOfWeek, action) {
+  const [hour, minute] = action === 'start' ? 
+    schedule.start.split(':').map(Number) : 
+    schedule.end.split(':').map(Number);
+  
+  const nextOccurrence = getNextOccurrenceOfDay(parseInt(dayOfWeek), hour, minute);
+  const now = new Date();
+  const delay = Math.max(0, nextOccurrence.getTime() - now.getTime());
+  
+  if (delay > 0) {
+    await chrome.alarms.create(`schedule_${schedule.id}_${dayOfWeek}_${action}`, {
+      delayInMinutes: delay / 60000
+    });
   }
 }
 
@@ -570,7 +670,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'updateBlocklist':
       chrome.storage.sync.set({ lists: message.lists })
-        .then(() => sendResponse({ success: true }))
+        .then(async () => {
+          try {
+            // If a Deep Focus session is currently active, immediately re-apply DNR rules
+            const data = await chrome.storage.sync.get(['lists', 'activeFocusUntil', 'focusSessionActive', 'isDeepFocus']);
+            const isActiveDeepFocus = !!data.isDeepFocus && data.focusSessionActive && data.activeFocusUntil && data.activeFocusUntil > Date.now();
+            if (isActiveDeepFocus) {
+              const patterns = (data.lists && data.lists.deep_work) || DEFAULT_LISTS.deep_work;
+              await setBlockRules(patterns, true, 'FOCUS_SESSION');
+              // Refresh tabs on affected domains so rules take effect immediately
+              refreshBlockedTabs();
+            }
+          } catch (_) {}
+          sendResponse({ success: true });
+        })
         .catch(error => sendResponse({ success: false, error: error.message }));
       return true;
       
@@ -581,6 +694,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: true });
         })
         .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+      
+    case 'testSchedules':
+      chrome.alarms.getAll().then(alarms => {
+        const scheduleAlarms = alarms.filter(alarm => alarm.name.startsWith('schedule_'));
+        console.log('Current schedule alarms:', scheduleAlarms);
+        sendResponse({ 
+          success: true, 
+          alarms: scheduleAlarms,
+          totalAlarms: alarms.length 
+        });
+      }).catch(error => sendResponse({ success: false, error: error.message }));
       return true;
   }
 });

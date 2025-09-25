@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "WebWall",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Block distracting sites and elements to help you stay focused",
   "permissions": [
     "declarativeNetRequest",
     "storage",
     "alarms",
     "activeTab",
-    "tabs"
+    "tabs",
+    "notifications"
   ],
   "host_permissions": [
     "*://*.instagram.com/*",

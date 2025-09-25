@@ -223,6 +223,9 @@ class YouTubeBlocker {
         
         // Also restore all JavaScript-hidden elements
         this.restoreJavaScriptHiddenElements();
+        
+        // Force YouTube video player to refresh if we're on a watch page
+        this.refreshVideoPlayer();
     }
 
     clearBlocks() {
@@ -241,28 +244,120 @@ class YouTubeBlocker {
         
         // Remove injected CSS
         this.removeBlockingCSS();
+        
+        // Force YouTube video player to refresh if we're on a watch page
+        this.refreshVideoPlayer();
     }
 
     restoreJavaScriptHiddenElements() {
-        console.log('YouTube: Restoring all JavaScript-hidden elements');
+        console.log('YouTube: Restoring JavaScript-hidden elements');
         
-        // Restore all elements that were hidden by JavaScript
-        const allElements = document.querySelectorAll('*');
-        allElements.forEach(element => {
-            if (element.style.display === 'none') {
-                element.style.display = '';
-                console.log('Restored hidden element:', element.tagName, element.className);
+        // Only restore elements that were likely hidden by our extension
+        // Be more selective to avoid interfering with YouTube's own functionality
+        const selectorsToRestore = [
+            'ytd-watch-flexy #secondary',
+            'ytd-watch-flexy #related', 
+            'ytd-watch-next-secondary-results-renderer',
+            'ytd-comments',
+            'ytd-engagement-panel-section-list-renderer',
+            'ytd-rich-grid-renderer',
+            'ytd-rich-grid-row',
+            'ytd-rich-item-renderer',
+            'ytd-rich-section-renderer',
+            'ytd-rich-shelf-renderer',
+            'ytd-rich-grid-media'
+        ];
+        
+        selectorsToRestore.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                if (element.style.display === 'none') {
+                    element.style.display = '';
+                    console.log('Restored element:', selector);
+                }
+            });
+        });
+        
+        // Also restore Shorts navigation elements
+        const shortsSelectors = [
+            'a[href="/shorts/"]',
+            'a[href^="/shorts/"]',
+            'ytd-guide-entry-renderer[title="Shorts"]',
+            'ytd-mini-guide-entry-renderer[title="Shorts"]'
+        ];
+        
+        shortsSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                if (element.style.display === 'none') {
+                    element.style.display = '';
+                    console.log('Restored Shorts element:', selector);
+                }
+            });
+        });
+        
+        console.log('YouTube: JavaScript-hidden elements restored');
+    }
+
+    refreshVideoPlayer() {
+        const path = window.location.pathname;
+        const isWatchPage = path === '/watch';
+        
+        if (!isWatchPage) {
+            return; // Only refresh on watch pages
+        }
+        
+        console.log('YouTube: Refreshing video player after focus session end');
+        
+        // Try to find and refresh the video player
+        const videoPlayer = document.querySelector('video');
+        const playerContainer = document.querySelector('#movie_player');
+        
+        if (videoPlayer) {
+            // Force the video to reload
+            try {
+                videoPlayer.load();
+                console.log('YouTube: Video player reloaded');
+            } catch (error) {
+                console.log('YouTube: Could not reload video player:', error);
             }
-        });
+        }
         
-        // Also remove any inline styles that might be hiding content
-        const elementsWithHiddenStyles = document.querySelectorAll('[style*="display: none"]');
-        elementsWithHiddenStyles.forEach(element => {
-            element.style.removeProperty('display');
-            console.log('Removed display:none from element:', element.tagName);
-        });
+        // Also try to trigger YouTube's player refresh mechanism
+        if (playerContainer) {
+            // Dispatch a custom event that might trigger YouTube's refresh
+            const refreshEvent = new CustomEvent('yt-navigate-finish', {
+                bubbles: true,
+                cancelable: true
+            });
+            playerContainer.dispatchEvent(refreshEvent);
+            console.log('YouTube: Dispatched refresh event to player container');
+            
+            // Also try to trigger a resize event which often helps YouTube reinitialize
+            const resizeEvent = new Event('resize', { bubbles: true });
+            window.dispatchEvent(resizeEvent);
+            console.log('YouTube: Dispatched resize event');
+        }
         
-        console.log('YouTube: All JavaScript-hidden elements restored');
+        // As a last resort, try to refresh the page after a short delay
+        // but only if the video is still not working
+        setTimeout(() => {
+            const video = document.querySelector('video');
+            const playerContainer = document.querySelector('#movie_player');
+            
+            // Check if video is broken (no video element, or video is not ready)
+            const isVideoBroken = !video || 
+                                 video.readyState === 0 || 
+                                 (video.videoWidth === 0 && video.videoHeight === 0) ||
+                                 (playerContainer && playerContainer.style.display === 'none');
+            
+            if (isVideoBroken) {
+                console.log('YouTube: Video player appears broken, attempting page refresh');
+                window.location.reload();
+            } else {
+                console.log('YouTube: Video player appears to be working correctly');
+            }
+        }, 2000);
     }
 
     hideShortsWithJavaScript() {
