@@ -186,15 +186,5 @@ For issues, feature requests, or questions:
 2. Create a new issue with details
 3. Include browser version and extension version
 
-## Roadmap
-
-- [ ] Element picker for custom blocking
-- [ ] More site profiles (TikTok, Facebook, etc.)
-- [ ] Focus analytics and insights
-- [ ] Integration with productivity tools
-- [ ] Mobile companion app
-- [ ] Team/enterprise features
-
----
 
 **Stay focused, stay productive! 🧱**
