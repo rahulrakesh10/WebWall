@@ -166,15 +166,6 @@ Focus-Blocks/
 - **Chrome**: 88+ (Manifest V3)
 - **Edge**: 88+ (Manifest V3)
 - **Firefox**: 109+ (Manifest V3 support)
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
 ## Support
 
 For issues, feature requests, or questions:
