@@ -161,11 +161,6 @@ Focus-Blocks/
 - **Open source**: Code is transparent and auditable
 - **Minimal permissions**: Only requests necessary permissions
 
-## Browser Compatibility
-
-- **Chrome**: 88+ (Manifest V3)
-- **Edge**: 88+ (Manifest V3)
-- **Firefox**: 109+ (Manifest V3 support)
 
 
 **Stay focused, stay productive! 🧱**
