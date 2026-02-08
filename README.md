@@ -154,13 +154,4 @@ Focus-Blocks/
 2. Create a ZIP file of the extension folder
 3. Submit to Chrome Web Store or Firefox Add-ons
 
-## Privacy & Security
-
-- **No external telemetry**: All data stays local
-- **No tracking**: Extension doesn't collect personal information
-- **Open source**: Code is transparent and auditable
-- **Minimal permissions**: Only requests necessary permissions
-
-
-
 **Stay focused, stay productive! 🧱**
