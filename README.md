@@ -166,12 +166,6 @@ Focus-Blocks/
 - **Chrome**: 88+ (Manifest V3)
 - **Edge**: 88+ (Manifest V3)
 - **Firefox**: 109+ (Manifest V3 support)
-## Support
-
-For issues, feature requests, or questions:
-1. Check the existing issues
-2. Create a new issue with details
-3. Include browser version and extension version
 
 
 **Stay focused, stay productive! 🧱**
