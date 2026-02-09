@@ -102,7 +102,6 @@ A powerful browser extension that helps you stay focused by blocking distracting
 - **Chrome Storage Local**: Statistics, bypass logs
 - **Declarative Net Request**: Dynamic blocking rules
 
-## Configuration
 
 ### Blocklist Patterns
 Use URL patterns to specify sites to block:
