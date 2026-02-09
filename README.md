@@ -142,10 +142,4 @@ Focus-Blocks/
     ├── popup.js
     └── options.js
 ```
-
-### Building for Distribution
-1. Test thoroughly in development mode
-2. Create a ZIP file of the extension folder
-3. Submit to Chrome Web Store or Firefox Add-ons
-
 **Stay focused, stay productive! 🧱**
