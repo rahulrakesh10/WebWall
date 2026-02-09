@@ -120,7 +120,6 @@ Use URL patterns to specify sites to block:
 - **Times**: Start and end times (24-hour format)
 - **Blocklist**: Which sites to block during schedule
 
-## Development
 
 ### Project Structure
 ```
