@@ -143,12 +143,6 @@ Focus-Blocks/
     └── options.js
 ```
 
-### Adding New Sites
-1. Create a new content script in `content-scripts/`
-2. Add site patterns to `manifest.json` content_scripts
-3. Implement blocking logic similar to existing scripts
-4. Add configuration options to the options page
-
 ### Building for Distribution
 1. Test thoroughly in development mode
 2. Create a ZIP file of the extension folder
