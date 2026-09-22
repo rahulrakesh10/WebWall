@@ -76,33 +76,6 @@ A powerful browser extension that helps you stay focused by blocking distracting
 3. Toggle specific features on/off
 4. Settings are automatically saved
 
-## Architecture
-
-### Core Components
-
-#### Background Service Worker (`background.js`)
-- Manages declarative net request rules
-- Handles focus sessions and schedules
-- Coordinates with content scripts
-- Manages alarms for automatic scheduling
-
-#### Content Scripts
-- **Instagram**: Blocks feed, Reels, Stories, Explore
-- **YouTube**: Blocks Shorts, home feed, trending
-- **Reddit**: Blocks r/all, popular posts, trending
-- **Twitter**: Blocks timeline, trending, who to follow
-
-#### UI Components
-- **Popup**: Quick session controls and status
-- **Options Page**: Full settings and management
-- **Blocked Page**: Beautiful focus page with bypass
-
-### Data Storage
-- **Chrome Storage Sync**: Settings, blocklists, schedules
-- **Chrome Storage Local**: Statistics, bypass logs
-- **Declarative Net Request**: Dynamic blocking rules
-
-
 ### Blocklist Patterns
 Use URL patterns to specify sites to block:
 - `*://*.instagram.com/*` - All Instagram pages
