@@ -37,11 +37,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 ## Installation
 
 ### Chrome/Edge
-1. Download or clone this repository
-2. Open Chrome/Edge and go to `chrome://extensions/`
-3. Enable "Developer mode" in the top right
-4. Click "Load unpacked" and select the extension folder
-5. The extension icon should appear in your toolbar
+
 
 ### Firefox
 1. Download or clone this repository
