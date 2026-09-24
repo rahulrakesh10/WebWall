@@ -37,6 +37,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 ## Installation
 
 ### Chrome/Edge
+https://chromewebstore.google.com/detail/webwall/lbiafkkkeifelibdhgnjciholockjlcc?hl=en
 
 
 ### Firefox
