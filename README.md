@@ -21,7 +21,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 - Automatic start/stop based on time
 - Multiple schedule support
 
-### 🎨 **Granular Element Blocking**
+###  **Granular Element Blocking**
 - **Instagram**: Block home feed, Reels, Stories, Explore,  allowed to see stories
 - **YouTube**: Block Shorts, home feed,  allowed to see searched videos
 - **Reddit**: Block r/all, popular posts, trending communities, allowed to see searched posts
