@@ -27,7 +27,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 - **Reddit**: Block r/all, popular posts, trending communities, allowed to see searched posts
 - **Twitter/X**: Block home timeline, trending topics, who to follow
 
-### 🔧 **Advanced Features**
+###  **Advanced Features**
 - Hold-to-bypass functionality (3-second hold)
 - Focus statistics and progress tracking
 - Cross-browser sync for settings
