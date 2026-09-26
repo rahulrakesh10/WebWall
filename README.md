@@ -9,7 +9,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 - Redirect blocked sites to a beautiful focus page
 - Customizable blocklists for different scenarios
 
-### ⏰ **Focus Sessions**
+###  **Focus Sessions**
 - Quick Focus for short bursts of productivity
 - Deep Work for extended focus periods
 - Custom duration sessions
