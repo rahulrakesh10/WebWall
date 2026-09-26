@@ -15,7 +15,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 - Custom duration sessions
 - Automatic session management with countdown timers
 
-### 📅 **Smart Schedules**
+###  **Smart Schedules**
 - Set up recurring focus sessions (e.g., work hours)
 - Day-of-week scheduling
 - Automatic start/stop based on time
