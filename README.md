@@ -4,7 +4,7 @@ A powerful browser extension that helps you stay focused by blocking distracting
 
 ## Features
 
-### 🎯 **Whole-Site Blocking**
+###  **Whole-Site Blocking**
 - Block entire websites using declarative net request (DNR)
 - Redirect blocked sites to a beautiful focus page
 - Customizable blocklists for different scenarios
