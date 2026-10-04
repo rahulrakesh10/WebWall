@@ -79,15 +79,6 @@ Use URL patterns to specify sites to block:
 - `*://*.youtube.com/shorts/*` - YouTube Shorts only
 - `*://*.reddit.com/r/all/*` - Reddit r/all only
 
-### Focus Session Types
-- **Quick Focus**: 25 minutes, ideal for short tasks
-- **Deep Work**: 90 minutes, for extended focus
-- **Custom**: User-defined duration
-
-### Schedule Options
-- **Days**: Monday-Sunday selection
-- **Times**: Start and end times (24-hour format)
-- **Blocklist**: Which sites to block during schedule
 
 
 ### Project Structure
